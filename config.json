@@ -1,0 +1,30 @@
+{
+  "acquisition": {
+    "AcquisitionMode": "Continuous",
+    "ExposureAuto": "Off",
+    "ExposureTime": 16666.0,
+    "GainAuto": "Off",
+    "Gain": 10.0
+  },
+  "image_format": {
+    "PixelFormat": "Mono8"
+  },
+  "primary_camera": {
+    "DeviceID": "24292752",
+    "LineSelector": "Line1",
+    "LineMode": "Output",
+    "V3_3Enable": true
+
+  },
+  "secondary_camera": {
+    "DeviceID": "24292737",
+    "TriggerSource": "Line3",
+    "TriggerOverlap": "ReadOut",
+    "TriggerMode": "On"
+  },
+  "chunk_data": {
+    "ChunkModeActive": true,
+    "ChunkSelector": "Timestamp",
+    "ChunkEnable": true
+  }
+}
