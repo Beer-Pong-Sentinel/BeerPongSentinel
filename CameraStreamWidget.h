@@ -41,6 +41,7 @@ private:
     bool cameraFound = false;
     int frameCounter = 0;
     int displayInterval = 5;
+    int processingType=0; //0 is none, 1 is thresholding, 2 is BGSub
        
 
 

@@ -5,6 +5,7 @@ Functions for ball detection using background subtraction.
 
 #include <opencv2/opencv.hpp>
 #include "ImageProcessing.h"
+#include <QtCore/QDebug>
 
 cv::Mat DisplayText(cv::Mat image, const std::string& text, const cv::Point& org) {
     int font = cv::FONT_HERSHEY_SIMPLEX;
@@ -49,11 +50,17 @@ int DrawCentroid(cv::Mat& image, const cv::Point& centroid)
     return 0;
 }
 
-int SubtractBackground(const cv::Mat& image, cv::Mat& fgMask, cv::Ptr<cv::BackgroundSubtractor> backSub)
+cv::Mat SubtractBackground(const cv::Mat& image, cv::Ptr<cv::BackgroundSubtractor> backSub)
 {
     int erode_kernel = 3;
 
+    qDebug()<<"about to subtract bg";
+
+    // Create the foreground mask
+    cv::Mat fgMask;
     backSub->apply(image, fgMask);
+    qDebug()<<"subtracted bg";
+
     // Remove shadows (threshold to binary, where values > 254 are set to 255)
     cv::threshold(fgMask, fgMask, 254, 255, cv::THRESH_BINARY);
 
@@ -61,13 +68,18 @@ int SubtractBackground(const cv::Mat& image, cv::Mat& fgMask, cv::Ptr<cv::Backgr
     cv::Mat kernel = cv::Mat::ones(erode_kernel, erode_kernel, CV_8U);
 
     // Apply erosion
-    cv::erode(fgMask, fgMask, kernel, cv::Point(-1, -1), 1);
+    cv::Mat erodedMask;
+    cv::erode(fgMask, erodedMask, kernel, cv::Point(-1, -1), 1);
 
     // Apply dilation
-    cv::dilate(fgMask, fgMask, kernel, cv::Point(-1, -1), 1);
+    cv::Mat dilatedMask;
+    cv::dilate(erodedMask, dilatedMask, kernel, cv::Point(-1, -1), 1);
 
-    return 0;
+    // Return the new mask
+
+    return dilatedMask;
 }
+
 
 cv::Mat FindLargestContours(const cv::Mat& thresholdedImage, int numContours) {
     std::vector<std::vector<cv::Point>> contours;

@@ -20,8 +20,11 @@
 #include <QtConcurrent>
 #include <QFuture>
 #include <QMutex>
+//#include <QmlDebuggingEnabler>
 
 using json = nlohmann::json;
+
+//QQmlDebuggingEnabler enabler;
 
 MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(nullptr), serialPort(new QSerialPort(this)) {
     ui.setupUi(this);  // Sets up the UI and initializes the widgets
@@ -59,6 +62,8 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
     connect(ui.stopCameraCaptureThreadButton, &QPushButton::clicked, this, &MainWindow::stopCapture);
     connect(ui.startMotorCameraCalibrationButton, &QPushButton::clicked, this, &MainWindow::calibrateMotorCamera);
     connect(ui.sendMotorPositionButton, &QPushButton::clicked, this, &MainWindow::queryMotorPositionHardCode);
+    connect(ui.setProcessingButton, &QPushButton::clicked, this, &MainWindow::setProcesseing);
+    connect(this, &MainWindow::processedFramesReady, this, &MainWindow::onProcessedFramesReady);
 
 
 
@@ -435,32 +440,148 @@ void MainWindow::stopCapture() {
 
 
 
+// THIS IS WHERE THE FRAME PROCESSING HAPPENS!!!!!!
 
-
-// FRAME PROCESSING
 void MainWindow::receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv::Mat &originalFrame2) {
+    if (processingType == "None") {
+        // No processing; just update the frames
+        ui.cameraStreamWidget->updateFrame(originalFrame1, originalFrame2);
+    } else if (processingType == "BGSub") {
+        // Offload the processing to another thread
+        // TODO: Figure out why BG Sub is so slow.
+        QtConcurrent::run([this, originalFrame1, originalFrame2]() {
+
+            cv::Mat bgSub1 = SubtractBackground(originalFrame1, backSub);
+            cv::Mat bgSub2 = SubtractBackground(originalFrame2, backSub);
+
+            // Use Qt's signal-slot mechanism to update the GUI safely
+            emit processedFramesReady(bgSub1, bgSub2);
+        });
 
 
-    if(performingMotorCameraCalibration){
+    }else if(processingType=="Thresh"){
 
-        // Retrieve the current threshold value from the spinbox
-        int thresholdValue = ui.thresholdSpinBox->value();
+        //Retrieve the current threshold value from the spinbox
+        int thresholdValue = ui.processingThresholdingThresholdSpinBox->value();
 
         // Apply the threshold with the updated value
         cv::Mat thresholdedImage1 = ApplyThreshold(originalFrame1, thresholdValue, 255, cv::THRESH_BINARY);
         cv::Mat thresholdedImage2 = ApplyThreshold(originalFrame2, thresholdValue, 255, cv::THRESH_BINARY);
 
+        if(ui.processingThresholdingShowCentroidsCheckBox->isChecked()){
+
+            std::vector<cv::Point> centroids1 = FindCentroids(thresholdedImage1);
+            std::vector<cv::Point> centroids2 = FindCentroids(thresholdedImage2);
+
+            // Check if exactly one centroid is detected in each image
+            if(centroids1.size() == 1 && centroids2.size() == 1 && !P1.empty() && !P2.empty()) {
+                // Convert centroids to cv::Point2f for triangulation
+                cv::Point2f point1(centroids1[0].x, centroids1[0].y);
+                cv::Point2f point2(centroids2[0].x, centroids2[0].y);
+
+                // Triangulate the 3D point
+                cv::Mat triangulatedPoint = triangulatePoint(P1, P2, point1, point2);
+
+                // Log or display the triangulated point
+                std::cout << "Triangulated 3D Point: " << triangulatedPoint << std::endl;
+
+                // Optionally, draw the centroids on the images
+                DrawCentroid(thresholdedImage1, centroids1[0]);
+                DrawCentroid(thresholdedImage2, centroids2[0]);
+
+                // Update the GUI with the images showing centroids
+                ui.cameraStreamWidget->updateFrame(thresholdedImage1, thresholdedImage2);
+            } else {
+                std::cout << "Error: Expected exactly one centroid per image and valid projection matrices." << std::endl;
+            }
+        }
+
+
         ui.cameraStreamWidget->updateFrame(thresholdedImage1, thresholdedImage2);
 
-    }
-    else{
-
+    } else {
         ui.cameraStreamWidget->updateFrame(originalFrame1, originalFrame2);
+    }
+}
 
+void MainWindow::onProcessedFramesReady(const cv::Mat &processedFrame1, const cv::Mat &processedFrame2) {
+    ui.cameraStreamWidget->updateFrame(processedFrame1, processedFrame2);
+}
+
+
+
+// // FRAME PROCESSING: this includes all the necessary processing for the different usecase.
+// // OPENCV SHOULD ONLY BE USED IN THIS FUNCTION!!!
+// void MainWindow::receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv::Mat &originalFrame2) {
+
+//     // if(performingMotorCameraCalibration){
+
+//     //     // Retrieve the current threshold value from the spinbox
+//     //     int thresholdValue = ui.thresholdSpinBox->value();
+
+//     //     // Apply the threshold with the updated value
+//     //     cv::Mat thresholdedImage1 = ApplyThreshold(originalFrame1, thresholdValue, 255, cv::THRESH_BINARY);
+//     //     cv::Mat thresholdedImage2 = ApplyThreshold(originalFrame2, thresholdValue, 255, cv::THRESH_BINARY);
+
+//     //     ui.cameraStreamWidget->updateFrame(thresholdedImage1, thresholdedImage2);
+
+//     // }
+//     // else{
+
+//     //     ui.cameraStreamWidget->updateFrame(originalFrame1, originalFrame2);
+
+//     // }
+
+//     if(processingType=="None"){
+//         ui.cameraStreamWidget->updateFrame(originalFrame1, originalFrame2);
+//     }
+//     else if(processingType=="BGSub"){
+
+//         cv::Mat bgSub1 = SubtractBackground(originalFrame1,backSub);
+//         cv::Mat bgSub2 = SubtractBackground(originalFrame2,backSub);
+
+//         ui.cameraStreamWidget->updateFrame(bgSub1, bgSub2);
+
+//     }
+//     else{
+//         ui.cameraStreamWidget->updateFrame(originalFrame1, originalFrame2);
+
+//     }
+
+
+
+// }
+
+void MainWindow::setProcesseing() {
+
+    if (ui.showProcessingNoneRadioButton->isChecked()) {
+        processingType = "None";
+    } else if (ui.showProcessingBGSubRadioButton->isChecked()) {
+        //reset background subtractor
+        backSub.dynamicCast<cv::BackgroundSubtractorMOG2>()->clear();
+        processingType = "BGSub";
+    }
+    else if(ui.showProcessingThresholdingRadioButton->isChecked()){
+        processingType="Thresh";
+    } else {
+        processingType = "None"; // Default to "None" if neither checkbox is checked
     }
 
+    // Debug print or handle the processingType as needed
+    qDebug() << "Processing Type set to:" << processingType;
 
+    // Further logic to handle processingType
 }
+
+
+
+// ************** IGNORE FUNCTIONS BELOW *******************************
+
+// The functions below use serial to communicate with the blue pill to
+// control the original iteration of the motors.
+// We're changing to a different motor setup, so these will (likely)
+// no longer be relevant. But don't delete them just in case.
+
 
 // void MainWindow::stopMotorCameraCalibration() {
 //     qDebug() << "Stopping Motor-Camera calibration";

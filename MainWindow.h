@@ -29,9 +29,14 @@ private slots:
     void calibrateCameras();
     void stopCapture();
     void startCapture();
+    void setProcesseing();
     void receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv::Mat &originalFrame2);
     void indicateCameraCalibrationComplete();
     void setupCaptureThreadConnections();
+    void onProcessedFramesReady(const cv::Mat &processedFrame1, const cv::Mat &processedFrame2);
+
+signals:
+    void processedFramesReady(const cv::Mat &processedFrame1, const cv::Mat &processedFrame2);
 
 private:
     QStringList getDirectoriesSortedByDate(const QString &directoryPath);
@@ -49,7 +54,8 @@ private:
     void queryMotorPositionHardCode();
 
     //possible variants: None, thresh and bgsub
-    std::string processingType="None";
+    QString  processingType="None";
+    cv::Ptr<cv::BackgroundSubtractor> backSub = cv::createBackgroundSubtractorMOG2();
     bool performingMotorCameraCalibration = false;
     std::atomic<bool> stopMotorCameraCalibrationFlag=false;
 
