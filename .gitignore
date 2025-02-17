@@ -72,3 +72,9 @@ CMakeLists.txt.user*
 *.dll
 *.exe
 
+# Misc
+build
+CMakeFiles
+.qt
+*.cmake
+CMakeCache.txt
