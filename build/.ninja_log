@@ -1,0 +1,10 @@
+# ninja log v6
+70	369	7606044696586832	C:/Users/harry/BeerPongSentinel/build/CMakeFiles/cmake.verify_globs	cd425cddc31e7c2f
+313	686	7606036393371535	.qt/qml_imports/BeerPongSentinel_build.cmake	6f25e5bf8c3186f7
+413	6731	7606044760632667	BeerPongSentinel_autogen/timestamp	bd74174d1be0d1aa
+313	686	7606036393371535	C:/Users/harry/BeerPongSentinel/build/.qt/qml_imports/BeerPongSentinel_build.cmake	6f25e5bf8c3186f7
+413	6731	7606044760632667	BeerPongSentinel_autogen/mocs_compilation.cpp	bd74174d1be0d1aa
+413	6731	7606044760632667	C:/Users/harry/BeerPongSentinel/build/BeerPongSentinel_autogen/timestamp	bd74174d1be0d1aa
+413	6731	7606044760632667	C:/Users/harry/BeerPongSentinel/build/BeerPongSentinel_autogen/mocs_compilation.cpp	bd74174d1be0d1aa
+6769	19287	7606044763575210	CMakeFiles/BeerPongSentinel.dir/ImageProcessing.cpp.obj	b920ffa0ef240d2f
+6780	31048	7606044763689465	CMakeFiles/BeerPongSentinel.dir/CameraCalibration.cpp.obj	a9094332fdf3255e

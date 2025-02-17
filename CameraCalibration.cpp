@@ -173,6 +173,44 @@ std::vector<cv::Mat> getProjectionMatrices(cv::Mat& cameraMatrix1, cv::Mat& came
 
 }
 
+// Attempt to implement triangulation using OpenCV's triangulatePoints function, currently facing error
+void triangulatePoints(const std::vector<cv::Point2f>& points1, const std::vector<cv::Point2f>& points2,
+                       const cv::Mat& P1, const cv::Mat& P2, std::vector<cv::Mat>& points3D) {
+    // Check input sizes
+    if (points1.size() != points2.size()) {
+        throw std::runtime_error("Input point vectors must be of the same size.");
+    }
+
+    // Convert points to cv::Mat (2xN matrix)
+    cv::Mat points1Mat(2, points1.size(), CV_32F);
+    cv::Mat points2Mat(2, points2.size(), CV_32F);
+
+    for (size_t i = 0; i < points1.size(); i++) {
+        points1Mat.at<float>(0, i) = points1[i].x;
+        points1Mat.at<float>(1, i) = points1[i].y;
+        points2Mat.at<float>(0, i) = points2[i].x;
+        points2Mat.at<float>(1, i) = points2[i].y;
+    }
+    std::cout << "projMatr1: " << P1.size() << ", type: " << P1.type() << std::endl;
+    std::cout << "projMatr2: " << P2.size() << ", type: " << P2.type() << std::endl;
+    std::cout << "points1: " << points1.size() << ", type: " << points1Mat.type() << std::endl;
+    std::cout << "points2: " << points2.size() << ", type: " << points2Mat.type() << std::endl;
+
+    // Triangulate points
+    cv::Mat points4D;
+    cv::triangulatePoints(P1, P2, points1Mat, points2Mat, points4D);
+
+    // Convert homogeneous coordinates to 3D Cartesian coordinates and store as 1x3 matrices
+    points3D.clear();
+    for (int i = 0; i < points4D.cols; i++) {
+        cv::Mat x = points4D.col(i);
+        x /= x.at<float>(3); // Normalize by the last coordinate
+
+        // Create a 1x3 matrix for the 3D point
+        cv::Mat point3D = (cv::Mat_<float>(1, 3) << x.at<float>(0), x.at<float>(1), x.at<float>(2));
+        points3D.push_back(point3D);
+    }
+}
 
 cv::Mat triangulatePoint(const cv::Mat& P1, const cv::Mat& P2, const cv::Point2f& point1, const cv::Point2f& point2) {
     // Create matrix A based on the point correspondences and projection matrices

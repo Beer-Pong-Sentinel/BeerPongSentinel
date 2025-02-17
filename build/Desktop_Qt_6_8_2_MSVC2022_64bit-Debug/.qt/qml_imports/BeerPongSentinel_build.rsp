@@ -1,0 +1,9 @@
+-rootPath
+C:/Users/harry/BeerPongSentinel
+-cmake-output
+-output-file
+C:/Users/harry/BeerPongSentinel/build/Desktop_Qt_6_8_2_MSVC2022_64bit-Debug/.qt/qml_imports/BeerPongSentinel_build.cmake
+-importPath
+C:/Users/harry/BeerPongSentinel/build/Desktop_Qt_6_8_2_MSVC2022_64bit-Debug
+-importPath
+C:/Qt/6.8.2/msvc2022_64/qml

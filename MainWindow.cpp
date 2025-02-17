@@ -20,6 +20,7 @@
 #include <QtConcurrent>
 #include <QFuture>
 #include <QMutex>
+#include <time.h>
 //#include <QmlDebuggingEnabler>
 
 using json = nlohmann::json;
@@ -63,6 +64,8 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
     connect(ui.startMotorCameraCalibrationButton, &QPushButton::clicked, this, &MainWindow::calibrateMotorCamera);
     connect(ui.sendMotorPositionButton, &QPushButton::clicked, this, &MainWindow::queryMotorPositionHardCode);
     connect(ui.setProcessingButton, &QPushButton::clicked, this, &MainWindow::setProcesseing);
+    connect(ui.calibrateSphericalButton, &QPushButton::clicked, this, &MainWindow::sphericalCalibration);
+    connect(ui.targetAimButton, &QPushButton::clicked, this, &MainWindow::sphericalTest);
     connect(this, &MainWindow::processedFramesReady, this, &MainWindow::onProcessedFramesReady);
 
 
@@ -468,32 +471,45 @@ void MainWindow::receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv
         cv::Mat thresholdedImage1 = ApplyThreshold(originalFrame1, thresholdValue, 255, cv::THRESH_BINARY);
         cv::Mat thresholdedImage2 = ApplyThreshold(originalFrame2, thresholdValue, 255, cv::THRESH_BINARY);
 
-        if(ui.processingThresholdingShowCentroidsCheckBox->isChecked()){
+        // Made this do triangulation only once every second for readability and performance
+        if(ui.processingThresholdingShowCentroidsCheckBox->isChecked() && difftime(time(0), MainWindow::start)){
 
-            std::vector<cv::Point> centroids1 = FindCentroids(thresholdedImage1);
-            std::vector<cv::Point> centroids2 = FindCentroids(thresholdedImage2);
+            QtConcurrent::run([this, thresholdedImage1, thresholdedImage2](){
+                MainWindow::start = time(0);
 
-            // Check if exactly one centroid is detected in each image
-            if(centroids1.size() == 1 && centroids2.size() == 1 && !P1.empty() && !P2.empty()) {
-                // Convert centroids to cv::Point2f for triangulation
-                cv::Point2f point1(centroids1[0].x, centroids1[0].y);
-                cv::Point2f point2(centroids2[0].x, centroids2[0].y);
+                std::vector<cv::Point> centroids1 = FindCentroids(thresholdedImage1);
+                std::vector<cv::Point> centroids2 = FindCentroids(thresholdedImage2);
 
-                // Triangulate the 3D point
-                cv::Mat triangulatedPoint = triangulatePoint(P1, P2, point1, point2);
+                // Check if exactly one centroid is detected in each image
+                if(centroids1.size() == 1 && centroids2.size() == 1 && !P1.empty() && !P2.empty()) {
+                    // Convert centroids to cv::Point2f for triangulation
+                    cv::Point2f point1(centroids1[0].x, centroids1[0].y);
+                    cv::Point2f point2(centroids2[0].x, centroids2[0].y);
 
-                // Log or display the triangulated point
-                std::cout << "Triangulated 3D Point: " << triangulatedPoint << std::endl;
+                    // Triangulate the 3D point
+                    // cv::Mat triangulatedPoint = triangulatePoint(P1, P2, point1, point2);
+                    std::vector<cv::Point2f> point1vec({point1});
+                    std::vector<cv::Point2f> point2vec({point2});
+                    std::vector<cv::Mat> triangulatedvec;
 
-                // Optionally, draw the centroids on the images
-                DrawCentroid(thresholdedImage1, centroids1[0]);
-                DrawCentroid(thresholdedImage2, centroids2[0]);
+                    triangulatePoints(P1,P2, point1vec, point2vec, triangulatedvec);
 
-                // Update the GUI with the images showing centroids
-                ui.cameraStreamWidget->updateFrame(thresholdedImage1, thresholdedImage2);
-            } else {
-                std::cout << "Error: Expected exactly one centroid per image and valid projection matrices." << std::endl;
-            }
+                    // Log or display the triangulated point
+                        std::cout << "Triangulated 3D Point: " << triangulatedvec[0] << std::endl;
+
+
+
+                    // Optionally, draw the centroids on the images
+                    //DrawCentroid(thresholdedImage1, centroids1[0]);
+                    // DrawCentroid(thresholdedImage2, centroids2[0]);
+
+                    // Update the GUI with the images showing centroids
+                    //ui.cameraStreamWidget->updateFrame(thresholdedImage1, thresholdedImage2);
+                } else {
+                    std::cout << "Error: Expected exactly one centroid per image and valid projection matrices." << std::endl;
+                }
+                emit processedFramesReady(thresholdedImage1, thresholdedImage2);
+            });
         }
 
 
@@ -573,8 +589,197 @@ void MainWindow::setProcesseing() {
     // Further logic to handle processingType
 }
 
+/**
+ * @brief helper function for reordering the centroids for getLEDCoords
+ * @param centroids
+ * @return centroid locations in order of top, left, right
+ */
+std::vector<cv::Point> MainWindow::reorderCentroids(const std::vector<cv::Point>& centroids) {
+    // Ensure the input has exactly 3 centroids
+    if (centroids.size() != 3) {
+        throw std::invalid_argument("The input vector must contain exactly 3 centroids.");
+    }
 
 
+    cv::Point left_centroid = centroids[0];
+    for (const auto& centroid : centroids) {
+        if (centroid.x < left_centroid.x) {
+            left_centroid = centroid;
+        }
+    }
+
+    // Step 2: Separate the remaining two centroids
+    std::vector<cv::Point> remaining_centroids;
+    for (const auto& centroid : centroids) {
+        if (centroid != left_centroid) {
+            remaining_centroids.push_back(centroid);
+            if (remaining_centroids.size() > 2) {
+                qDebug() << "Reordering error";
+            }
+        }
+    }
+
+    cv::Point top_centroid = remaining_centroids[0];
+    cv::Point right_centroid = remaining_centroids[1];
+    if (remaining_centroids[0].y > remaining_centroids[1].y) {
+        std::swap(top_centroid, right_centroid);
+    }
+
+    // Step 4: Create the reordered list
+    std::vector<cv::Point> reordered_centroids = {top_centroid, left_centroid, right_centroid};
+    return reordered_centroids;
+}
+
+// Used to be from the old motor calibration - repurposed for spherical coordinate calibration
+/**
+ * @brief MainWindow::getLEDCoords
+ * @return the 3D points of the spherical calibration LEDs in order of top, left, right
+ */
+std::vector<cv::Mat> MainWindow::getLEDCoords() {
+    // Vector to store the result
+    std::vector<cv::Mat> result;
+
+    // Get the latest frames
+    cv::Mat frame1 = captureThread->getFrame1();
+    cv::Mat frame2 = captureThread->getFrame2();
+
+    // Get the threshold value from the spinbox
+    int thresholdValue = ui.processingThresholdingThresholdSpinBox->value();
+    qDebug() << "Threshold used: " << thresholdValue << "\n";
+
+    // Apply thresholding
+    cv::Mat thresholdedImage1 = ApplyThreshold(frame1, thresholdValue, 255, cv::THRESH_BINARY);
+    cv::imwrite("test.jpg", thresholdedImage1);
+    cv::Mat thresholdedImage2 = ApplyThreshold(frame2, thresholdValue, 255, cv::THRESH_BINARY);
+
+    // Find the 3 largest contours
+    cv::Mat largestContoursImage1 = FindLargestContours(thresholdedImage1, 3);
+    cv::Mat largestContoursImage2 = FindLargestContours(thresholdedImage2, 3);
+
+    // Find centroids of the largest contours
+    std::vector<cv::Point> centroids1 = FindCentroids(largestContoursImage1);
+    std::vector<cv::Point> centroids2 = FindCentroids(largestContoursImage2);
+
+    // Check if the number of centroids in camera 1 is exactly 3
+    if (centroids1.size() != 3) {
+        qDebug() << "Error: Camera 1 - Expected 3 centroids, but detected" << centroids1.size() << "centroid(s).";
+        for (size_t i = 0; i < centroids1.size(); ++i) {
+            qDebug() << "Camera 1 Centroid" << i + 1 << ": (" << centroids1[i].x << "," << centroids1[i].y << ")";
+        }
+        return result; // Return empty vector if the centroids are not valid
+    }
+
+    // Check if the number of centroids in camera 2 is exactly 3
+    if (centroids2.size() != 3) {
+        qDebug() << "Error: Camera 2 - Expected 3 centroids, but detected" << centroids2.size() << "centroid(s).";
+        for (size_t i = 0; i < centroids2.size(); ++i) {
+            qDebug() << "Camera 2 Centroid" << i + 1 << ": (" << centroids2[i].x << "," << centroids2[i].y << ")";
+        }
+        return result; // Return empty vector if the centroids are not valid
+    }
+
+    std::vector<cv::Point> reordered_centroids1 = MainWindow::reorderCentroids(centroids1);
+    std::cout << reordered_centroids1 << std::endl;
+    std::vector<cv::Point> reordered_centroids2 = MainWindow::reorderCentroids(centroids2);
+    std::cout << reordered_centroids2 << std::endl;
+
+    // for (int i=0; i<3; i++) {
+    //     cv::Point2f point1(centroids1[i].x, centroids1[i].y);
+    //     cv::Point2f point2(centroids2[i].x, centroids2[i].y);
+    //     cv::Mat triangulatedPoint = triangulatePoint(P1, P2, point1, point2);
+    //     result.push_back(triangulatedPoint);
+
+    // }
+
+
+    // Triangulate
+    triangulatePoints(reordered_centroids1, reordered_centroids2, P1, P2, result);
+
+    return result;
+}
+
+void MainWindow::sphericalCalibration() {
+
+    if(P1.empty() || P2.empty()) {
+        qCritical() << "Cameras must be calibrated before doing spherical calibration";
+        return;
+    }
+
+    std::vector<cv::Mat> LEDCoords = MainWindow::getLEDCoords();
+    cv::Mat topCoords = LEDCoords[0].reshape(1,3);
+    cv::Mat leftCoords = LEDCoords[1].reshape(1,3);
+    cv::Mat rightCoords = LEDCoords[2].reshape(1,3);
+
+    std::cout << "Difference between right and left coordinates: " << (rightCoords - leftCoords) << std::endl;
+    std::cout << "Length in inches: " << cv::norm(rightCoords - leftCoords)/25.4 << std::endl;
+
+    std::cout << "Difference between top and right coordinates: " << (topCoords - rightCoords) << std::endl;
+    std::cout << "Length in inches: " << cv::norm(topCoords - rightCoords)/25.4 << std::endl;
+
+    cv::Mat xDir = (rightCoords - leftCoords) / cv::norm(rightCoords - leftCoords);
+    cv::Mat yDir = (topCoords - rightCoords) / cv::norm(topCoords - rightCoords);
+    cv::Mat zDir = xDir.cross(yDir);
+
+    sphericalOrigin = topCoords + displacementFromLEDPlaneToOrigin;
+
+    rotationMatrix = (cv::Mat_<double>(3,3) <<
+                          xDir.at<double>(0,0), xDir.at<double>(1,0), xDir.at<double>(2,0),
+                      yDir.at<double>(0,0), yDir.at<double>(1,0), yDir.at<double>(2,0),
+                      zDir.at<double>(0,0), zDir.at<double>(1,0), zDir.at<double>(2,0)
+                      );
+
+    qDebug() << "Successfully completed spherical calibration";
+}
+
+void MainWindow::sphericalTest() {
+    if (sphericalOrigin.empty() || rotationMatrix.empty()) {
+        qCritical() << "Spherical calibration must be done first";
+        return;
+    }
+
+    // Get the latest frames
+    cv::Mat frame1 = captureThread->getFrame1();
+    cv::Mat frame2 = captureThread->getFrame2();
+
+    // Get the threshold value from the spinbox
+    int thresholdValue = ui.thresholdSpinBox->value();
+
+    // Apply thresholding
+    cv::Mat thresholdedImage1 = ApplyThreshold(frame1, thresholdValue, 255, cv::THRESH_BINARY);
+    cv::Mat thresholdedImage2 = ApplyThreshold(frame2, thresholdValue, 255, cv::THRESH_BINARY);
+
+    // Find the largest contour
+    cv::Mat largestContoursImage1 = FindLargestContours(thresholdedImage1, 1);
+    cv::Mat largestContoursImage2 = FindLargestContours(thresholdedImage2, 1);
+
+    // Find centroids of the largest contour
+    std::vector<cv::Point> centroids1 = FindCentroids(largestContoursImage1);
+    std::vector<cv::Point> centroids2 = FindCentroids(largestContoursImage2);
+
+    // Find centroid in camera coordinates
+    cv::Point2f point1(centroids1[0].x, centroids1[0].y);
+    cv::Point2f point2(centroids2[0].x, centroids2[0].y);
+    cv::Mat targetCoordsCameraCoordinates = triangulatePoint(P1, P2, point1, point2);
+
+
+    cv::Mat targetCoordsSpherical = rotationMatrix * (targetCoordsCameraCoordinates - sphericalOrigin);
+    double x = targetCoordsSpherical.at<double>(0,0);
+    double y = targetCoordsSpherical.at<double>(1,0);
+    double z = targetCoordsSpherical.at<double>(2,0);
+
+    double normXY = std::sqrt(x * x + y * y);
+    double phi = std::copysign(1.0, y) * std::acos(x / normXY);
+    double optimalAzimuth = phi - M_PI / 2.0;
+
+    double normXYZ = std::sqrt(x * x + y * y + z * z);
+    double theta = std::acos(z / normXYZ);
+    double optimalAltitude = M_PI / 2.0 - theta;
+
+    qDebug() << "Global coordinates: " << x << ", " << y << ", " << z << "\n";
+    qDebug() << "Calculated azimuth" << optimalAzimuth << "\n";
+    qDebug() << "Calculated altitude" << optimalAltitude << "\n";
+    // TODO: move the motors to their desired angles
+}
 // ************** IGNORE FUNCTIONS BELOW *******************************
 
 // The functions below use serial to communicate with the blue pill to
@@ -641,7 +846,7 @@ void MainWindow::calibrateMotorCamera() {
                 // Optional: Add a delay to ensure motor commands are not sent too rapidly
                 QThread::msleep(1); // Adjust the delay as necessary
 
-                std::vector<cv::Point> LEDCoords = getLEDCoords(); // Continue with LED coordinate collection
+                // std::vector<cv::Point> LEDCoords = getLEDCoords(); // Continue with LED coordinate collection
             }
         }
 
@@ -749,64 +954,6 @@ void MainWindow::queryMotorPositionHardCode() {
         qDebug() << "Unexpected response size:" << response.size();
     }
 }
-
-
-std::vector<cv::Point> MainWindow::getLEDCoords() {
-    // Vector to store the result
-    std::vector<cv::Point> result;
-
-    // Get the latest frames
-    cv::Mat frame1 = captureThread->getFrame1();
-    cv::Mat frame2 = captureThread->getFrame2();
-
-    // Get the threshold value from the spinbox
-    int thresholdValue = ui.thresholdSpinBox->value();
-
-    // Apply thresholding
-    cv::Mat thresholdedImage1 = ApplyThreshold(frame1, thresholdValue, 255, cv::THRESH_BINARY);
-    cv::Mat thresholdedImage2 = ApplyThreshold(frame2, thresholdValue, 255, cv::THRESH_BINARY);
-
-    // Find the 2 largest contours
-    cv::Mat largestContoursImage1 = FindLargestContours(thresholdedImage1, 2);
-    cv::Mat largestContoursImage2 = FindLargestContours(thresholdedImage2, 2);
-
-    // Find centroids of the largest contours
-    std::vector<cv::Point> centroids1 = FindCentroids(largestContoursImage1);
-    std::vector<cv::Point> centroids2 = FindCentroids(largestContoursImage2);
-
-    // Check if the number of centroids in camera 1 is exactly 2
-    if (centroids1.size() != 2) {
-        qDebug() << "Error: Camera 1 - Expected 2 centroids, but detected" << centroids1.size() << "centroid(s).";
-        for (size_t i = 0; i < centroids1.size(); ++i) {
-            qDebug() << "Camera 1 Centroid" << i + 1 << ": (" << centroids1[i].x << "," << centroids1[i].y << ")";
-        }
-        return result; // Return empty vector if the centroids are not valid
-    }
-
-    // Check if the number of centroids in camera 2 is exactly 2
-    if (centroids2.size() != 2) {
-        qDebug() << "Error: Camera 2 - Expected 2 centroids, but detected" << centroids2.size() << "centroid(s).";
-        for (size_t i = 0; i < centroids2.size(); ++i) {
-            qDebug() << "Camera 2 Centroid" << i + 1 << ": (" << centroids2[i].x << "," << centroids2[i].y << ")";
-        }
-        return result; // Return empty vector if the centroids are not valid
-    }
-
-    // Log detected centroids
-    qDebug() << "Camera 1 Centroid 1: (" << centroids1[0].x << "," << centroids1[0].y << ")";
-    qDebug() << "Camera 1 Centroid 2: (" << centroids1[1].x << "," << centroids1[1].y << ")";
-    qDebug() << "Camera 2 Centroid 1: (" << centroids2[0].x << "," << centroids2[0].y << ")";
-    qDebug() << "Camera 2 Centroid 2: (" << centroids2[1].x << "," << centroids2[1].y << ")";
-
-    // Add the centroids to the result vector
-    result.push_back(centroids1[0]); // Camera 1 Centroid 1
-    result.push_back(centroids1[1]); // Camera 1 Centroid 2
-    result.push_back(centroids2[0]); // Camera 2 Centroid 1
-    result.push_back(centroids2[1]); // Camera 2 Centroid 2
-
-    return result;
-}
-
 
 
 

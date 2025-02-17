@@ -35,6 +35,11 @@ std::vector<cv::Point> FindCentroids(const cv::Mat& thresholded_img) {
             int cX = static_cast<int>(M.m10 / M.m00);
             int cY = static_cast<int>(M.m01 / M.m00);
             centroids.emplace_back(cX, cY); // Add the centroid to the vector
+        } else {
+            qDebug() << "Found contour with zero area, using first edge point as centroid";
+            int cX = contour[0].x;
+            int cY = contour[0].y;
+            centroids.emplace_back(cX, cY);
         }
     }
 

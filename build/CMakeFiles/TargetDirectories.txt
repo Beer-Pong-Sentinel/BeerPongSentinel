@@ -1,0 +1,10 @@
+C:/Users/harry/BeerPongSentinel/build/CMakeFiles/BeerPongSentinel.dir
+C:/Users/harry/BeerPongSentinel/build/CMakeFiles/BeerPongSentinel_qmlimportscan.dir
+C:/Users/harry/BeerPongSentinel/build/CMakeFiles/edit_cache.dir
+C:/Users/harry/BeerPongSentinel/build/CMakeFiles/rebuild_cache.dir
+C:/Users/harry/BeerPongSentinel/build/CMakeFiles/list_install_components.dir
+C:/Users/harry/BeerPongSentinel/build/CMakeFiles/install.dir
+C:/Users/harry/BeerPongSentinel/build/CMakeFiles/install/local.dir
+C:/Users/harry/BeerPongSentinel/build/CMakeFiles/install/strip.dir
+C:/Users/harry/BeerPongSentinel/build/CMakeFiles/BeerPongSentinel_autogen_timestamp_deps.dir
+C:/Users/harry/BeerPongSentinel/build/CMakeFiles/BeerPongSentinel_autogen.dir

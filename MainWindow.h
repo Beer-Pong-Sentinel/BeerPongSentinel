@@ -2,19 +2,21 @@
 #define MAINWINDOW_H
 
 #include <QtWidgets/QMainWindow>
-#include "ui_mainwindow.h"  // Include the generated UI header file
+#include "ui_MainWindow.h"  // Include the generated UI header file (note: had to change the casing so that the generated file would have this casing which was expected by the UI editor_
 #include <QtCore/QStringList>
 #include "CameraStreamWidget.h"
 #include <QtGui/QImage>
 #include <opencv2/opencv.hpp>
 #include <QSerialPort>
 #include <QMutex>
+#include <time.h>
 
     class MainWindow : public QMainWindow {
     Q_OBJECT
 
 public:
     explicit MainWindow(QWidget *parent = nullptr);  // Constructor
+    time_t start = time(0);
     ~MainWindow();  // Destructor
 
 private slots:
@@ -35,6 +37,7 @@ private slots:
     void setupCaptureThreadConnections();
     void onProcessedFramesReady(const cv::Mat &processedFrame1, const cv::Mat &processedFrame2);
 
+
 signals:
     void processedFramesReady(const cv::Mat &processedFrame1, const cv::Mat &processedFrame2);
 
@@ -49,7 +52,11 @@ private:
     double projectionError = 0.0;
     QSerialPort *serialPort;
     void calibrateMotorCamera();
-    std::vector<cv::Point> getLEDCoords();
+    std::vector<cv::Mat> getLEDCoords();
+    std::vector<cv::Point> reorderCentroids(const std::vector<cv::Point>& centroids);
+    void sphericalCalibration();
+
+    void sphericalTest();
     void queryMotorPosition(quint16 aziValue, quint16 altValue, QSerialPort &localSerialPort);
     void queryMotorPositionHardCode();
 
@@ -58,6 +65,12 @@ private:
     cv::Ptr<cv::BackgroundSubtractor> backSub = cv::createBackgroundSubtractorMOG2();
     bool performingMotorCameraCalibration = false;
     std::atomic<bool> stopMotorCameraCalibrationFlag=false;
+
+    // for spherical calibration
+    cv::Mat displacementFromLEDPlaneToOrigin = (cv::Mat_<double>(3, 1) << 0, 0, 10.0); // CHANGE THIS
+    cv::Mat rotationMatrix;
+    cv::Mat sphericalOrigin;
+
 
 };
 

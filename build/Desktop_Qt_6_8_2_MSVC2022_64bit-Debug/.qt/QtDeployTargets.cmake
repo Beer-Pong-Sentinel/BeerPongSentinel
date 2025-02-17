@@ -1,0 +1,3 @@
+set(__QT_DEPLOY_TARGET_BeerPongSentinel_FILE C:/Users/harry/BeerPongSentinel/build/Desktop_Qt_6_8_2_MSVC2022_64bit-Debug/BeerPongSentinel.exe)
+set(__QT_DEPLOY_TARGET_BeerPongSentinel_TYPE EXECUTABLE)
+set(__QT_DEPLOY_TARGET_BeerPongSentinel_RUNTIME_DLLS C:/Qt/6.8.2/msvc2022_64/bin/Qt6OpenGLWidgetsd.dll;C:/Qt/6.8.2/msvc2022_64/bin/Qt6SerialPortd.dll;C:/Qt/6.8.2/msvc2022_64/bin/Qt6Concurrentd.dll;C:/Qt/6.8.2/msvc2022_64/bin/Qt6Qmld.dll;C:/Qt/6.8.2/msvc2022_64/bin/Qt6Widgetsd.dll;C:/Qt/6.8.2/msvc2022_64/bin/Qt6OpenGLd.dll;C:/Qt/6.8.2/msvc2022_64/bin/Qt6Guid.dll;C:/Qt/6.8.2/msvc2022_64/bin/Qt6Networkd.dll;C:/Qt/6.8.2/msvc2022_64/bin/Qt6Cored.dll)
