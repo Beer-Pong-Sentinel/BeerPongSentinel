@@ -14,7 +14,8 @@ std::pair<std::vector<cv::Mat>, double> getCameraAndRTMatrices(std::string& dirC
 std::vector<cv::Mat> getProjectionMatrices(cv::Mat& cameraMatrix1, cv::Mat& cameraMatrix2, cv::Mat& R, cv::Mat& T);
 
 cv::Mat triangulatePoint(const cv::Mat& P1, const cv::Mat& P2, const cv::Point2f& point1, const cv::Point2f& point2);
-
+void triangulate(const std::vector<cv::Point2f>& points1, const std::vector<cv::Point2f>& points2,
+                 const cv::Mat& P1, const cv::Mat& P2, std::vector<cv::Mat>& points3D);
 void calibrate(std::string& calDir, int& rows, int& columns, double& worldScaling);
 
 #endif // CAMERACALIBRATION_H

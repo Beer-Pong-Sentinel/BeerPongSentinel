@@ -174,7 +174,7 @@ std::vector<cv::Mat> getProjectionMatrices(cv::Mat& cameraMatrix1, cv::Mat& came
 }
 
 // Attempt to implement triangulation using OpenCV's triangulatePoints function, currently facing error
-void triangulatePoints(const std::vector<cv::Point2f>& points1, const std::vector<cv::Point2f>& points2,
+void triangulate(const std::vector<cv::Point2f>& points1, const std::vector<cv::Point2f>& points2,
                        const cv::Mat& P1, const cv::Mat& P2, std::vector<cv::Mat>& points3D) {
     // Check input sizes
     if (points1.size() != points2.size()) {
@@ -191,15 +191,15 @@ void triangulatePoints(const std::vector<cv::Point2f>& points1, const std::vecto
         points2Mat.at<float>(0, i) = points2[i].x;
         points2Mat.at<float>(1, i) = points2[i].y;
     }
-    std::cout << "projMatr1: " << P1.size() << ", type: " << P1.type() << std::endl;
-    std::cout << "projMatr2: " << P2.size() << ", type: " << P2.type() << std::endl;
-    std::cout << "points1: " << points1.size() << ", type: " << points1Mat.type() << std::endl;
-    std::cout << "points2: " << points2.size() << ", type: " << points2Mat.type() << std::endl;
 
     // Triangulate points
     cv::Mat points4D;
+    std::cout << "Camera 1 points: " << points1Mat << std::endl;
+    std::cout << "Camera 2 points: " << points2Mat << std::endl;
+
     cv::triangulatePoints(P1, P2, points1Mat, points2Mat, points4D);
 
+    std::cout << "Triangulation output: " << points4D << std::endl;
     // Convert homogeneous coordinates to 3D Cartesian coordinates and store as 1x3 matrices
     points3D.clear();
     for (int i = 0; i < points4D.cols; i++) {
@@ -259,6 +259,8 @@ void calibrate(std::string& calDir, int& rows, int& columns, double& worldScalin
     std::vector<cv::Mat> projectionMatrices = getProjectionMatrices(cameraMatrix1, cameraMatrix2, R, T);
     cv::Mat P1 = projectionMatrices[0];
     cv::Mat P2 = projectionMatrices[1];
+    std::cout << "P1: " << P1 << std::endl;
+    std::cout << "P2: " << P2 << std::endl;
 
     // Convert projection matrices to JSON format
     nlohmann::json calibrationData;

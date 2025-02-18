@@ -474,7 +474,7 @@ void MainWindow::receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv
         // Made this do triangulation only once every second for readability and performance
         if(ui.processingThresholdingShowCentroidsCheckBox->isChecked() && difftime(time(0), MainWindow::start)){
 
-            QtConcurrent::run([this, thresholdedImage1, thresholdedImage2](){
+            // QtConcurrent::run([this, thresholdedImage1, thresholdedImage2](){
                 MainWindow::start = time(0);
 
                 std::vector<cv::Point> centroids1 = FindCentroids(thresholdedImage1);
@@ -492,7 +492,7 @@ void MainWindow::receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv
                     std::vector<cv::Point2f> point2vec({point2});
                     std::vector<cv::Mat> triangulatedvec;
 
-                    triangulatePoints(P1,P2, point1vec, point2vec, triangulatedvec);
+                    triangulate(point1vec, point2vec, P1,P2, triangulatedvec);
 
                     // Log or display the triangulated point
                         std::cout << "Triangulated 3D Point: " << triangulatedvec[0] << std::endl;
@@ -509,7 +509,7 @@ void MainWindow::receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv
                     std::cout << "Error: Expected exactly one centroid per image and valid projection matrices." << std::endl;
                 }
                 emit processedFramesReady(thresholdedImage1, thresholdedImage2);
-            });
+            // });
         }
 
 
@@ -683,17 +683,17 @@ std::vector<cv::Mat> MainWindow::getLEDCoords() {
     std::vector<cv::Point> reordered_centroids2 = MainWindow::reorderCentroids(centroids2);
     std::cout << reordered_centroids2 << std::endl;
 
-    // for (int i=0; i<3; i++) {
-    //     cv::Point2f point1(centroids1[i].x, centroids1[i].y);
-    //     cv::Point2f point2(centroids2[i].x, centroids2[i].y);
-    //     cv::Mat triangulatedPoint = triangulatePoint(P1, P2, point1, point2);
-    //     result.push_back(triangulatedPoint);
+    std::vector<cv::Point2f> point1vec;
+    std::vector<cv::Point2f> point2vec;
 
-    // }
+    for (int i=0; i<3; i++) {
+        cv::Point2f point1(reordered_centroids1[i].x, reordered_centroids1[i].y);
+        cv::Point2f point2(reordered_centroids2[i].x, reordered_centroids2[i].y);
+        point1vec.push_back(point1);
+        point2vec.push_back(point2);
 
-
-    // Triangulate
-    triangulatePoints(reordered_centroids1, reordered_centroids2, P1, P2, result);
+    }
+    triangulate(point1vec, point2vec, P1, P2, result);
 
     return result;
 }
@@ -707,8 +707,11 @@ void MainWindow::sphericalCalibration() {
 
     std::vector<cv::Mat> LEDCoords = MainWindow::getLEDCoords();
     cv::Mat topCoords = LEDCoords[0].reshape(1,3);
+    std::cout << "Top: " << topCoords << std::endl;
     cv::Mat leftCoords = LEDCoords[1].reshape(1,3);
+    std::cout << "Left: " << leftCoords << std::endl;
     cv::Mat rightCoords = LEDCoords[2].reshape(1,3);
+    std::cout << "Right: " << rightCoords << std::endl;
 
     std::cout << "Difference between right and left coordinates: " << (rightCoords - leftCoords) << std::endl;
     std::cout << "Length in inches: " << cv::norm(rightCoords - leftCoords)/25.4 << std::endl;
