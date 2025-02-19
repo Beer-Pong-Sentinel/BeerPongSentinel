@@ -39,6 +39,8 @@ bool CameraCaptureThread::initializeCameras() {
         INodeMap& nodeMap1 = camera1->GetNodeMap();
         qDebug()<<"got camera1 nodepam";
         ConfigureCameraSettings(nodeMap1);
+
+
         qDebug()<<"configured camera1 settings";
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
         qDebug()<<"waited 500ms";
@@ -150,6 +152,7 @@ void CameraCaptureThread::run() {
 
             image1->Release();
             image2->Release();
+
 
             emit newFrameReady(frame1, frame2);
             //std::this_thread::sleep_for(std::chrono::milliseconds(3));

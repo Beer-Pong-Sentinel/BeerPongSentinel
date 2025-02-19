@@ -21,6 +21,7 @@
 #include <QFuture>
 #include <QMutex>
 #include <time.h>
+#include <sstream>
 //#include <QmlDebuggingEnabler>
 
 using json = nlohmann::json;
@@ -403,6 +404,7 @@ void MainWindow::setupCaptureThreadConnections() {
 
 
 void MainWindow::startCapture() {
+
     if (!captureThread) {
         captureThread = new CameraCaptureThread(ui.cameraStreamWidget);
         qDebug() << "Started new thread";
@@ -446,6 +448,8 @@ void MainWindow::stopCapture() {
 // THIS IS WHERE THE FRAME PROCESSING HAPPENS!!!!!!
 
 void MainWindow::receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv::Mat &originalFrame2) {
+
+
     if (processingType == "None") {
         // No processing; just update the frames
         ui.cameraStreamWidget->updateFrame(originalFrame1, originalFrame2);
@@ -472,51 +476,67 @@ void MainWindow::receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv
         cv::Mat thresholdedImage2 = ApplyThreshold(originalFrame2, thresholdValue, 255, cv::THRESH_BINARY);
 
         // Made this do triangulation only once every second for readability and performance
-        if(ui.processingThresholdingShowCentroidsCheckBox->isChecked() && difftime(time(0), MainWindow::start)){
+        if (ui.processingThresholdingShowCentroidsCheckBox->isChecked() &&
+            difftime(time(0), MainWindow::start)) {
 
-            // QtConcurrent::run([this, thresholdedImage1, thresholdedImage2](){
+            QtConcurrent::run([this, thresholdedImage1, thresholdedImage2]() {
+                // Throttle processing
                 MainWindow::start = time(0);
 
                 std::vector<cv::Point> centroids1 = FindCentroids(thresholdedImage1);
                 std::vector<cv::Point> centroids2 = FindCentroids(thresholdedImage2);
 
-                // Check if exactly one centroid is detected in each image
-                if(centroids1.size() == 1 && centroids2.size() == 1 && !P1.empty() && !P2.empty()) {
-                    // Convert centroids to cv::Point2f for triangulation
-                    cv::Point2f point1(centroids1[0].x, centroids1[0].y);
-                    cv::Point2f point2(centroids2[0].x, centroids2[0].y);
+                qDebug() << "Image1 centroids count:" << static_cast<int>(centroids1.size());
+                qDebug() << "Image2 centroids count:" << static_cast<int>(centroids2.size());
 
-                    // Triangulate the 3D point
-                    // cv::Mat triangulatedPoint = triangulatePoint(P1, P2, point1, point2);
-                    std::vector<cv::Point2f> point1vec({point1});
-                    std::vector<cv::Point2f> point2vec({point2});
-                    std::vector<cv::Mat> triangulatedvec;
-
-                    triangulate(point1vec, point2vec, P1,P2, triangulatedvec);
-
-                    // Log or display the triangulated point
-                        std::cout << "Triangulated 3D Point: " << triangulatedvec[0] << std::endl;
-
-
-
-                    // Optionally, draw the centroids on the images
-                    //DrawCentroid(thresholdedImage1, centroids1[0]);
-                    // DrawCentroid(thresholdedImage2, centroids2[0]);
-
-                    // Update the GUI with the images showing centroids
-                    //ui.cameraStreamWidget->updateFrame(thresholdedImage1, thresholdedImage2);
-                } else {
-                    std::cout << "Error: Expected exactly one centroid per image and valid projection matrices." << std::endl;
+                // Case 1: No centroids found
+                if (centroids1.empty() || centroids2.empty()) {
+                    qDebug() << "No centroids found";
                 }
+                // Case 2: Exactly one centroid in each image: triangulate
+                else if (centroids1.size() == 1 && centroids2.size() == 1) {
+                    if (!P1.empty() && !P2.empty()) {
+                        // cv::triangulatePoints expects 2xN matrices (of type CV_64F) for the points.
+                        cv::Mat pts1 = (cv::Mat_<double>(2,1) << static_cast<double>(centroids1[0].x), static_cast<double>(centroids1[0].y));
+                        cv::Mat pts2 = (cv::Mat_<double>(2,1) << static_cast<double>(centroids2[0].x), static_cast<double>(centroids2[0].y));
+
+                        cv::Mat points4D;
+                        cv::triangulatePoints(P1, P2, pts1, pts2, points4D);
+
+                        // Convert from homogeneous coordinates (4×1) to Euclidean (3×1)
+                        cv::Mat point3D = points4D.rowRange(0,3) / points4D.at<double>(3,0);
+                        std::cout << "Triangulated 3D Point: " << point3D << std::endl;
+                    } else {
+                        qDebug() << "Projection matrices are empty, cannot triangulate.";
+                    }
+                }
+                // Case 3: More than one centroid found: print all 2D locations
+                else {
+                    qDebug() << "Multiple centroids found in image1:";
+                    for (const auto &pt : centroids1) {
+                        qDebug() << "(" << pt.x << "," << pt.y << ")";
+                    }
+                    qDebug() << "Multiple centroids found in image2:";
+                    for (const auto &pt : centroids2) {
+                        qDebug() << "(" << pt.x << "," << pt.y << ")";
+                    }
+                }
+
+                // Optionally, draw a red circle at the first centroid of each image (if available)
+                if (!centroids1.empty())
+                    cv::circle(thresholdedImage1, centroids1[0], 5, cv::Scalar(0, 0, 255), -1);
+                if (!centroids2.empty())
+                    cv::circle(thresholdedImage2, centroids2[0], 5, cv::Scalar(0, 0, 255), -1);
+
                 emit processedFramesReady(thresholdedImage1, thresholdedImage2);
-            // });
+            });
         }
 
 
-        ui.cameraStreamWidget->updateFrame(thresholdedImage1, thresholdedImage2);
+        emit processedFramesReady(thresholdedImage1, thresholdedImage2);
 
     } else {
-        ui.cameraStreamWidget->updateFrame(originalFrame1, originalFrame2);
+        emit processedFramesReady(originalFrame1, originalFrame2);
     }
 }
 

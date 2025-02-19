@@ -15,7 +15,7 @@ cv::Mat DisplayText(cv::Mat image, const std::string& text, const cv::Point& org
 std::vector<cv::Point> FindCentroids(const cv::Mat& thresholded_img);
 
 // Draw a centroid point on the image
-int DrawCentroid(cv::Mat& image, const cv::Point& centroid);
+int DrawCentroid(cv::Mat& image, cv::Point& centroid);
 
 // Subtract background from an image using a background subtractor model
 cv::Mat SubtractBackground(const cv::Mat& image, cv::Ptr<cv::BackgroundSubtractor> backSub);

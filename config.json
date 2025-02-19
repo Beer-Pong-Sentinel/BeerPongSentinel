@@ -13,14 +13,16 @@
     "DeviceID": "24292752",
     "LineSelector": "Line1",
     "LineMode": "Output",
-    "V3_3Enable": true
+    "V3_3Enable": true,
+    "CameraNumber": 1
 
   },
   "secondary_camera": {
     "DeviceID": "24292737",
     "TriggerSource": "Line3",
     "TriggerOverlap": "ReadOut",
-    "TriggerMode": "On"
+    "TriggerMode": "On",
+    "CameraNumber": 2
   },
   "chunk_data": {
     "ChunkModeActive": true,

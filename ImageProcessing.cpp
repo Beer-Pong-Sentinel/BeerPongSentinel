@@ -32,22 +32,23 @@ std::vector<cv::Point> FindCentroids(const cv::Mat& thresholded_img) {
 
         // Check if the area (m00) is non-zero to avoid division by zero
         if (M.m00 != 0) {
+            qDebug() << "Centroid found";
             int cX = static_cast<int>(M.m10 / M.m00);
             int cY = static_cast<int>(M.m01 / M.m00);
             centroids.emplace_back(cX, cY); // Add the centroid to the vector
-        } else {
+        } /*else {
             qDebug() << "Found contour with zero area, using first edge point as centroid";
             int cX = contour[0].x;
             int cY = contour[0].y;
             centroids.emplace_back(cX, cY);
-        }
+        }*/
     }
 
     return centroids; // Return the vector of centroids
 }
 
 
-int DrawCentroid(cv::Mat& image, const cv::Point& centroid)
+int DrawCentroid(cv::Mat& image, cv::Point& centroid)
 {
     // cv::cvtColor(image, image, cv::COLOR_GRAY2BGR);
     cv::circle(image, centroid, 5, cv::Scalar(0, 0, 255), -1);
