@@ -137,8 +137,8 @@ void CameraCaptureThread::run() {
                 continue;
             }
 
-            cv::Mat matFrame1(image1->GetHeight(), image1->GetWidth(), CV_8UC1, image1->GetData());
-            cv::Mat matFrame2(image2->GetHeight(), image2->GetWidth(), CV_8UC1, image2->GetData());
+            cv::Mat matFrame1(image1->GetHeight(), image1->GetWidth(), CV_8UC3, image1->GetData());
+            cv::Mat matFrame2(image2->GetHeight(), image2->GetWidth(), CV_8UC3, image2->GetData());
 
             // Copy frames to ensure thread safety when emitting
             cv::Mat tempFrame1 = matFrame1.clone();

@@ -73,13 +73,13 @@ void CameraStreamWidget::updateFrame(const cv::Mat &frame1, const cv::Mat &frame
     // Convert cv::Mat to QImage for display and resize by a factor of 2
     if (!frame1.empty()) {
         // Convert to QImage and scale down to half size
-        currentFrame1 = QImage(frame1.data, frame1.cols, frame1.rows, frame1.step, QImage::Format_Grayscale8)
+        currentFrame1 = QImage(frame1.data, frame1.cols, frame1.rows, frame1.step, QImage::Format_BGR888)
                             .scaled(frame1.cols / 2, frame1.rows / 2, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
     }
 
     if (!frame2.empty()) {
         // Convert to QImage and scale down to half size
-        currentFrame2 = QImage(frame2.data, frame2.cols, frame2.rows, frame2.step, QImage::Format_Grayscale8)
+        currentFrame2 = QImage(frame2.data, frame2.cols, frame2.rows, frame2.step, QImage::Format_BGR888)
                             .scaled(frame2.cols / 2, frame2.rows / 2, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
     }
 
