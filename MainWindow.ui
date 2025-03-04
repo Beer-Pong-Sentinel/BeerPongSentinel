@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1360</width>
+    <width>1364</width>
     <height>887</height>
    </rect>
   </property>
@@ -230,6 +230,20 @@
            <string>Processing</string>
           </property>
           <layout class="QGridLayout" name="gridLayout">
+           <item row="2" column="2">
+            <widget class="QCheckBox" name="processingBGSubShowCentroidsCheckBox">
+             <property name="text">
+              <string>Centroids</string>
+             </property>
+            </widget>
+           </item>
+           <item row="4" column="0">
+            <widget class="QPushButton" name="setProcessingButton">
+             <property name="text">
+              <string>Set</string>
+             </property>
+            </widget>
+           </item>
            <item row="0" column="0">
             <widget class="QRadioButton" name="showProcessingNoneRadioButton">
              <property name="text">
@@ -243,14 +257,17 @@
              </attribute>
             </widget>
            </item>
-           <item row="2" column="0">
-            <widget class="QRadioButton" name="showProcessingBGSubRadioButton">
-             <property name="text">
-              <string>Background subtraction</string>
+           <item row="2" column="1">
+            <widget class="QSpinBox" name="processingBGSubThresholdSpinBox"/>
+           </item>
+           <item row="1" column="4">
+            <widget class="QPushButton" name="testSetSecondPosButton">
+             <property name="enabled">
+              <bool>false</bool>
              </property>
-             <attribute name="buttonGroup">
-              <string notr="true">showProcessingButtonGroup</string>
-             </attribute>
+             <property name="text">
+              <string>Set 2nd Pos</string>
+             </property>
             </widget>
            </item>
            <item row="1" column="3">
@@ -263,39 +280,12 @@
              </property>
             </widget>
            </item>
-           <item row="2" column="2">
-            <widget class="QCheckBox" name="processingBGSubShowCentroidsCheckBox">
-             <property name="text">
-              <string>Centroids</string>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="0">
-            <widget class="QRadioButton" name="showProcessingThresholdingRadioButton">
-             <property name="text">
-              <string>LED threshold</string>
-             </property>
-             <attribute name="buttonGroup">
-              <string notr="true">showProcessingButtonGroup</string>
-             </attribute>
-            </widget>
-           </item>
            <item row="2" column="3">
             <widget class="QCheckBox" name="processingBGSubShowTrajectoryCheckBox">
              <property name="text">
               <string>Predicted trajectory</string>
              </property>
             </widget>
-           </item>
-           <item row="3" column="0">
-            <widget class="QPushButton" name="setProcessingButton">
-             <property name="text">
-              <string>Set</string>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="1">
-            <widget class="QSpinBox" name="processingBGSubThresholdSpinBox"/>
            </item>
            <item row="1" column="1">
             <widget class="QSpinBox" name="processingThresholdingThresholdSpinBox">
@@ -314,14 +304,34 @@
              </property>
             </widget>
            </item>
-           <item row="1" column="4">
-            <widget class="QPushButton" name="testSetSecondPosButton">
-             <property name="enabled">
-              <bool>false</bool>
-             </property>
+           <item row="1" column="0">
+            <widget class="QRadioButton" name="showProcessingThresholdingRadioButton">
              <property name="text">
-              <string>Set 2nd Pos</string>
+              <string>LED threshold</string>
              </property>
+             <attribute name="buttonGroup">
+              <string notr="true">showProcessingButtonGroup</string>
+             </attribute>
+            </widget>
+           </item>
+           <item row="2" column="0">
+            <widget class="QRadioButton" name="showProcessingBGSubRadioButton">
+             <property name="text">
+              <string>Background subtraction</string>
+             </property>
+             <attribute name="buttonGroup">
+              <string notr="true">showProcessingButtonGroup</string>
+             </attribute>
+            </widget>
+           </item>
+           <item row="3" column="0">
+            <widget class="QRadioButton" name="showProcessingBallDetectionRadioButton">
+             <property name="text">
+              <string>Ball detection</string>
+             </property>
+             <attribute name="buttonGroup">
+              <string notr="true">showProcessingButtonGroup</string>
+             </attribute>
             </widget>
            </item>
           </layout>
@@ -1098,8 +1108,8 @@ This will automatically move calculate the transfer matrix between the encoder c
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1360</width>
-     <height>25</height>
+     <width>1364</width>
+     <height>24</height>
     </rect>
    </property>
   </widget>

@@ -534,7 +534,8 @@ void MainWindow::receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv
 
 
         emit processedFramesReady(thresholdedImage1, thresholdedImage2);
-
+    } else if (processingType == "BD") {
+        emit processedFramesReady(originalFrame1, originalFrame2);
     } else {
         emit processedFramesReady(originalFrame1, originalFrame2);
     }
@@ -596,9 +597,10 @@ void MainWindow::setProcesseing() {
         //reset background subtractor
         backSub.dynamicCast<cv::BackgroundSubtractorMOG2>()->clear();
         processingType = "BGSub";
-    }
-    else if(ui.showProcessingThresholdingRadioButton->isChecked()){
+    } else if(ui.showProcessingThresholdingRadioButton->isChecked()){
         processingType="Thresh";
+    } else if (ui.showProcessingBallDetectionRadioButton->isChecked()) {
+        processingType = "BD";
     } else {
         processingType = "None"; // Default to "None" if neither checkbox is checked
     }
