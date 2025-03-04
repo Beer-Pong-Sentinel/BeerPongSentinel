@@ -2,9 +2,9 @@
   "acquisition": {
     "AcquisitionMode": "Continuous",
     "ExposureAuto": "Off",
-    "ExposureTime": 16666.0,
+    "ExposureTime": 166660.0,
     "GainAuto": "Off",
-    "Gain": 10.0
+    "Gain": 5.0
   },
   "image_format": {
     "PixelFormat": "BGR8"

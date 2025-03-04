@@ -67,6 +67,7 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
     connect(ui.setProcessingButton, &QPushButton::clicked, this, &MainWindow::setProcesseing);
     connect(ui.calibrateSphericalButton, &QPushButton::clicked, this, &MainWindow::sphericalCalibration);
     connect(ui.targetAimButton, &QPushButton::clicked, this, &MainWindow::sphericalTest);
+    connect(ui.setBackgroundImageButton, &QPushButton::clicked, this, &MainWindow::setBackgroundImage);
     connect(this, &MainWindow::processedFramesReady, this, &MainWindow::onProcessedFramesReady);
 
 
@@ -452,7 +453,7 @@ void MainWindow::receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv
 
     if (processingType == "None") {
         // No processing; just update the frames
-        ui.cameraStreamWidget->updateFrame(originalFrame1, originalFrame2);
+        ui.cameraStreamWidget->updateFrame(originalFrame1, originalFrame2, format);
     } else if (processingType == "BGSub") {
         // Offload the processing to another thread
         // TODO: Figure out why BG Sub is so slow.
@@ -535,14 +536,36 @@ void MainWindow::receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv
 
         emit processedFramesReady(thresholdedImage1, thresholdedImage2);
     } else if (processingType == "BD") {
-        emit processedFramesReady(originalFrame1, originalFrame2);
+        // qDebug() << "Applying Threshold";
+        // ApplyHSVThreshold(originalFrame1, tmp1, output1, 3, 30, 150, 200, 50, 115);
+        // ApplyHSVThreshold(originalFrame2, tmp2, output2, 3, 30, 150, 200, 50, 115);
+        // emit processedFramesReady(output1, output2);
+        // cv::Mat out1, out2;
+        // out1 = TestApplyHSVThreshold(originalFrame1, 3, 50, 90, 200, 50, 155);
+        // out2 = TestApplyHSVThreshold(originalFrame2, 3, 50, 90, 200, 50, 155);
+        // emit processedFramesReady(out1, out2);
+
+        int thresholdValue = ui.processingBDThresholdSpinBox->value();
+        QtConcurrent::run([this, originalFrame1, originalFrame2, thresholdValue]() {
+            // int64_t startTime = cv::getTickCount();
+            // ApplyHSVThreshold(originalFrame1, tmp1, output1, 40, 80, 50, 255, 30, 255);
+            // int64_t endTime = cv::getTickCount();
+            // ApplyHSVThreshold(originalFrame2, tmp2, output2, 40, 80, 50, 255, 30, 255);
+            // double duration = (endTime - startTime) / cv::getTickFrequency();
+            // qDebug() << "Time taken to apply HSV threshold: " << duration << " seconds."
+
+            ApplyMotionThreshold(originalFrame1, tmpGray1, output1, backgroundImage1, thresholdValue);
+            ApplyMotionThreshold(originalFrame2, tmpGray2, output2, backgroundImage2, thresholdValue);
+            // Use Qt's signal-slot mechanism to update the GUI safely
+            emit processedFramesReady(output1, output2);
+        });
     } else {
         emit processedFramesReady(originalFrame1, originalFrame2);
     }
 }
 
 void MainWindow::onProcessedFramesReady(const cv::Mat &processedFrame1, const cv::Mat &processedFrame2) {
-    ui.cameraStreamWidget->updateFrame(processedFrame1, processedFrame2);
+    ui.cameraStreamWidget->updateFrame(processedFrame1, processedFrame2, format);
 }
 
 
@@ -603,6 +626,14 @@ void MainWindow::setProcesseing() {
         processingType = "BD";
     } else {
         processingType = "None"; // Default to "None" if neither checkbox is checked
+    }
+
+    if (processingType == "BD") {
+        ui.setBackgroundImageButton->setEnabled(true);
+        format = QImage::Format_Grayscale8;
+    } else {
+        ui.setBackgroundImageButton->setEnabled(false);
+        format = QImage::Format_BGR888;
     }
 
     // Debug print or handle the processingType as needed
@@ -978,6 +1009,14 @@ void MainWindow::queryMotorPositionHardCode() {
     } else {
         qDebug() << "Unexpected response size:" << response.size();
     }
+}
+
+void MainWindow::setBackgroundImage() {
+    if (processingType != "BD") return;
+
+    cv::cvtColor(captureThread->getFrame1(), backgroundImage1, cv::COLOR_BGR2GRAY);
+    cv::cvtColor(captureThread->getFrame2(), backgroundImage2, cv::COLOR_BGR2GRAY);
+    return;
 }
 
 

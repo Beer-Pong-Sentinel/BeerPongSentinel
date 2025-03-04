@@ -24,7 +24,7 @@ public:
 
 public slots:
 
-    void updateFrame(const cv::Mat &frame1, const cv::Mat &frame2);  // Slot to receive and display frames
+    void updateFrame(const cv::Mat &frame1, const cv::Mat &frame2, QImage::Format format);  // Slot to receive and display frames
 
 protected:
     void initializeGL() override;

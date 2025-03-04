@@ -135,3 +135,24 @@ cv::Mat ApplyThreshold(const cv::Mat& inputImage, double thresholdValue, double 
     cv::threshold(inputImage, thresholdedImage, thresholdValue, maxValue, thresholdType);
     return thresholdedImage;
 }
+
+void ApplyHSVThreshold(const cv::Mat& input, cv::Mat& tmp, cv::Mat& output, double minH, double maxH, double minS, double maxS, double minV, double maxV) {
+    // Convert the input image to HSV color space and store in tmp
+    cv::cvtColor(input, tmp, cv::COLOR_BGR2HSV);
+    // Use inRange to apply the thresholds efficiently
+    cv::inRange(tmp, cv::Scalar(minH, minS, minV), cv::Scalar(maxH, maxS, maxV), output);
+}
+
+cv::Mat TestApplyHSVThreshold(const cv::Mat& input, double minH, double maxH, double minS, double maxS, double minV, double maxV) {
+    cv::Mat tmp, output;
+    cv::cvtColor(input, tmp, cv::COLOR_BGR2HSV);
+    cv::inRange(tmp, cv::Scalar(minH, minS, minV), cv::Scalar(maxH, maxS, maxV), output);
+    return output;
+}
+
+void ApplyMotionThreshold(const cv::Mat& input, cv::Mat& tmp, cv::Mat& output, const cv::Mat& background, double threshold) {
+    if (background.empty()) return;
+    cv::cvtColor(input, tmp, cv::COLOR_BGR2GRAY);
+    cv::absdiff(tmp, background, tmp);
+    cv::threshold(tmp, output, threshold, 255, cv::THRESH_BINARY);
+}

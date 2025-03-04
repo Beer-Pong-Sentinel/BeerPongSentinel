@@ -25,4 +25,10 @@ cv::Mat FindLargestContours(const cv::Mat& thresholdedImage, int numContours);
 
 cv::Mat ApplyThreshold(const cv::Mat& inputImage, double thresholdValue, double maxValue, int thresholdType);
 
+void ApplyHSVThreshold(const cv::Mat& input, cv::Mat& tmp, cv::Mat& output, double minH, double maxH, double minS, double maxS, double minV, double maxV);
+
+cv::Mat TestApplyHSVThreshold(const cv::Mat& input, double minH, double maxH, double minS, double maxS, double minV, double maxV);
+
+void ApplyMotionThreshold(const cv::Mat& input, cv::Mat& tmp, cv::Mat& output, const cv::Mat& background, double threshold);
+
 #endif // IMAGEPROCESSING_H

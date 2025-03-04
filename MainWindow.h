@@ -32,6 +32,7 @@ private slots:
     void stopCapture();
     void startCapture();
     void setProcesseing();
+    void setBackgroundImage();
     void receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv::Mat &originalFrame2);
     void indicateCameraCalibrationComplete();
     void setupCaptureThreadConnections();
@@ -47,6 +48,7 @@ private:
     int numberOfSavedImagePairs = 0;
     CameraStreamWidget *cameraStreamWidget;
     CameraCaptureThread *captureThread = nullptr;
+    QImage::Format format = QImage::Format_BGR888;
     cv::Mat P1;                      // Projection matrix for camera 1
     cv::Mat P2;                      // Projection matrix for camera 2
     double projectionError = 0.0;
@@ -71,6 +73,11 @@ private:
     cv::Mat rotationMatrix;
     cv::Mat sphericalOrigin;
 
+    // for ball detection
+    cv::Mat backgroundImage1, backgroundImage2;
+    cv::Mat tmp1, tmp2;
+    cv::Mat tmpGray1, tmpGray2;
+    cv::Mat output1, output2;
 
 };
 
