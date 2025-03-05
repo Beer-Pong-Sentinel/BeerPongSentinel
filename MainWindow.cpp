@@ -453,7 +453,9 @@ void MainWindow::receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv
 
     if (processingType == "None") {
         // No processing; just update the frames
-        ui.cameraStreamWidget->updateFrame(originalFrame1, originalFrame2, format);
+        QtConcurrent::run([this, originalFrame1, originalFrame2]() {
+            ui.cameraStreamWidget->updateFrame(originalFrame1, originalFrame2, format);
+        });
     } else if (processingType == "BGSub") {
         // Offload the processing to another thread
         // TODO: Figure out why BG Sub is so slow.

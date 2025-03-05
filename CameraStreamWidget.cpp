@@ -4,7 +4,10 @@
 #include <QtCore/QDebug>
 
 CameraStreamWidget::CameraStreamWidget(QWidget *parent)
-    : QOpenGLWidget(parent) {
+    : QOpenGLWidget(parent)
+    , m_lastUpdateTime(0)
+    , m_updateInterval(16)
+    , m_pendingUpdate(false) {
     setFixedSize(720, 270);  // Set the widget to a fixed size
     setDefaultBlackFrame();    // Display a black screen initially
 }
@@ -27,6 +30,7 @@ void CameraStreamWidget::initializeGL() {
 
 void CameraStreamWidget::paintGL() {
     QMutexLocker locker(&frameMutex);  // Lock access to the frames
+    m_pendingUpdate = false;
 
     // Check if both frames are valid and have the same height
     if (!currentFrame1.isNull() && !currentFrame2.isNull() && currentFrame1.height() == currentFrame2.height()) {
@@ -43,6 +47,8 @@ void CameraStreamWidget::paintGL() {
         QPainter widgetPainter(this);
         widgetPainter.drawImage(rect(), fullFrame);  // Draw the concatenated image to fill the widget
     }
+
+    m_lastUpdateTime = m_frameTimer.elapsed();
 }
 
 
@@ -69,7 +75,14 @@ void CameraStreamWidget::setDefaultBlackFrame() {
 
 void CameraStreamWidget::updateFrame(const cv::Mat &frame1, const cv::Mat &frame2, QImage::Format format) {
     QMutexLocker locker(&frameMutex);
-
+    
+    // Only process if we're not already pending an update or if enough time has passed
+    qint64 currentTime = m_frameTimer.elapsed();
+    if (m_pendingUpdate && (currentTime - m_lastUpdateTime < m_updateInterval)) {
+        // Skip this frame - we're still waiting to display the previous one
+        return;
+    }
+    
     // Convert cv::Mat to QImage for display and resize by a factor of 2
     if (!frame1.empty()) {
         // Convert to QImage and scale down to half size
@@ -82,6 +95,8 @@ void CameraStreamWidget::updateFrame(const cv::Mat &frame1, const cv::Mat &frame
         currentFrame2 = QImage(frame2.data, frame2.cols, frame2.rows, frame2.step, format)
                             .scaled(frame2.cols / 2, frame2.rows / 2, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
     }
-
+    
+    // Set the pending update flag and request a repaint
+    m_pendingUpdate = true;
     update();  // Trigger a repaint
 }
