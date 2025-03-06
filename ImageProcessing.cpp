@@ -56,16 +56,16 @@ int DrawCentroid(cv::Mat& image, cv::Point& centroid)
     return 0;
 }
 
-cv::Mat SubtractBackground(const cv::Mat& image, cv::Ptr<cv::BackgroundSubtractor> backSub)
+cv::Mat SubtractBackground(const cv::Mat& image, cv::Ptr<cv::BackgroundSubtractor> backSub, cv::Mat& fgMask, cv::Mat& tmpGray)
 {
+    cv::cvtColor(image, tmpGray, cv::COLOR_BGR2GRAY);
     int erode_kernel = 3;
 
-    qDebug()<<"about to subtract bg";
+    // qDebug()<<"about to subtract bg";
 
     // Create the foreground mask
-    cv::Mat fgMask;
     backSub->apply(image, fgMask);
-    qDebug()<<"subtracted bg";
+    // qDebug()<<"subtracted bg";
 
     // Remove shadows (threshold to binary, where values > 254 are set to 255)
     cv::threshold(fgMask, fgMask, 254, 255, cv::THRESH_BINARY);

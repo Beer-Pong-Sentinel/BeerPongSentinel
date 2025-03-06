@@ -461,8 +461,8 @@ void MainWindow::receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv
         // TODO: Figure out why BG Sub is so slow.
         QtConcurrent::run([this, originalFrame1, originalFrame2]() {
 
-            cv::Mat bgSub1 = SubtractBackground(originalFrame1, backSub);
-            cv::Mat bgSub2 = SubtractBackground(originalFrame2, backSub);
+            cv::Mat bgSub1 = SubtractBackground(originalFrame1, backSub, tmp1, tmpGray1);
+            cv::Mat bgSub2 = SubtractBackground(originalFrame2, backSub, tmp2, tmpGray2);
 
             // Use Qt's signal-slot mechanism to update the GUI safely
             emit processedFramesReady(bgSub1, bgSub2);
@@ -630,7 +630,7 @@ void MainWindow::setProcesseing() {
         processingType = "None"; // Default to "None" if neither checkbox is checked
     }
 
-    if (processingType == "BD") {
+    if (processingType == "BD" || processingType == "BGSub") {
         ui.setBackgroundImageButton->setEnabled(true);
         format = QImage::Format_Grayscale8;
     } else {
