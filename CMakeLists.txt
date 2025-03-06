@@ -34,6 +34,7 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         json.hpp
         CameraCalibration.cpp
         CameraCalibration.h
+        ProcessTimer.h ProcessTimer.cpp
 
     )
 # Define target properties for Android with Qt 6 as:

@@ -557,19 +557,35 @@ void MainWindow::receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv
         // emit processedFramesReady(out1, out2);
 
         int thresholdValue = ui.processingBDThresholdSpinBox->value();
-        QtConcurrent::run([this, originalFrame1, originalFrame2, thresholdValue]() {
-            // int64_t startTime = cv::getTickCount();
-            // ApplyHSVThreshold(originalFrame1, tmp1, output1, 40, 80, 50, 255, 30, 255);
-            // int64_t endTime = cv::getTickCount();
-            // ApplyHSVThreshold(originalFrame2, tmp2, output2, 40, 80, 50, 255, 30, 255);
-            // double duration = (endTime - startTime) / cv::getTickFrequency();
-            // qDebug() << "Time taken to apply HSV threshold: " << duration << " seconds."
+        // QtConcurrent::run([this, originalFrame1, originalFrame2, thresholdValue]() {
+        //     totalTimer->timeVoid([&]() {
+        //         // Process first frame HSV
+        //         // hsvTimer->timeVoid([&]() {
+        //         //     ApplyHSVThreshold(originalFrame1, tmp1, output1, 40, 80, 50, 255, 30, 255);
+        //         // });
+                
+        //         // Process second frame HSV
+        //         ApplyHSVThreshold(originalFrame1, tmp1, output1, 40, 80, 50, 255, 30, 255);
+        //         ApplyHSVThreshold(originalFrame2, tmp2, output2, 40, 80, 50, 255, 30, 255);
+                
+        //         // // Process first frame motion
+        //         // motionTimer->timeVoid([&]() {
+        //         //     ApplyMotionThreshold(originalFrame1, tmpGray1, output1, backgroundImage1, thresholdValue);
+        //         // });
+                
+        //         // // Process second frame motion
+        //         // ApplyMotionThreshold(originalFrame2, tmpGray2, output2, backgroundImage2, thresholdValue);
+        //     });
+            
+        //     // Use Qt's signal-slot mechanism to update the GUI safely
+        //     emit processedFramesReady(output1, output2);
+        // });
 
-            ApplyMotionThreshold(originalFrame1, tmpGray1, output1, backgroundImage1, thresholdValue);
-            ApplyMotionThreshold(originalFrame2, tmpGray2, output2, backgroundImage2, thresholdValue);
-            // Use Qt's signal-slot mechanism to update the GUI safely
-            emit processedFramesReady(output1, output2);
+        totalTimer->timeVoid([&]() {
+            ApplyHSVThreshold(originalFrame1, tmp1, output1, 40, 80, 50, 255, 30, 255);
+            ApplyHSVThreshold(originalFrame2, tmp2, output2, 40, 80, 50, 255, 30, 255);
         });
+        emit processedFramesReady(output1, output2);  
     } else {
         emit processedFramesReady(originalFrame1, originalFrame2);
     }
