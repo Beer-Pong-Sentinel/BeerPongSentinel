@@ -18,7 +18,7 @@ std::vector<cv::Point> FindCentroids(const cv::Mat& thresholded_img);
 int DrawCentroid(cv::Mat& image, cv::Point& centroid);
 
 // Subtract background from an image using a background subtractor model
-cv::Mat SubtractBackground(const cv::Mat& image, cv::Ptr<cv::BackgroundSubtractor> backSub, cv::Mat& fgMask, cv::Mat& tmpGray);
+cv::Mat SubtractBackground(const cv::Mat& image, cv::Ptr<cv::BackgroundSubtractor> backSub, cv::Mat& fgMask, cv::Mat& tmpGray, cv::Mat& kernel);
 
 // Find the largest contour in a thresholded image and create an output image with only the largest contour
 cv::Mat FindLargestContours(const cv::Mat& thresholdedImage, int numContours);

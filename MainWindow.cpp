@@ -460,9 +460,18 @@ void MainWindow::receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv
         // Offload the processing to another thread
         // TODO: Figure out why BG Sub is so slow.
         QtConcurrent::run([this, originalFrame1, originalFrame2]() {
+            // QElapsedTimer taskTimer;
+            // taskTimer.start();
+            
+            // qint64 startTime1 = taskTimer.elapsed();
+            // cv::Mat bgSub1 = SubtractBackground(originalFrame1, backSub, tmp1, tmpGray1, kernel);
+            // qint64 elapsed1 = taskTimer.elapsed() - startTime1;
+            
+            // qDebug() << "Background subtraction timing:";   
+            // qDebug() << "  First frame:" << elapsed1 << "ms";
 
-            cv::Mat bgSub1 = SubtractBackground(originalFrame1, backSub, tmp1, tmpGray1);
-            cv::Mat bgSub2 = SubtractBackground(originalFrame2, backSub, tmp2, tmpGray2);
+            cv::Mat bgSub1 = SubtractBackground(originalFrame1, backSub, tmp1, tmpGray1, kernel);
+            cv::Mat bgSub2 = SubtractBackground(originalFrame2, backSub, tmp2, tmpGray2, kernel);
 
             // Use Qt's signal-slot mechanism to update the GUI safely
             emit processedFramesReady(bgSub1, bgSub2);

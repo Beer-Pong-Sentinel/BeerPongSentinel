@@ -56,10 +56,9 @@ int DrawCentroid(cv::Mat& image, cv::Point& centroid)
     return 0;
 }
 
-cv::Mat SubtractBackground(const cv::Mat& image, cv::Ptr<cv::BackgroundSubtractor> backSub, cv::Mat& fgMask, cv::Mat& tmpGray)
+cv::Mat SubtractBackground(const cv::Mat& image, cv::Ptr<cv::BackgroundSubtractor> backSub, cv::Mat& fgMask, cv::Mat& tmpGray, cv::Mat& kernel)
 {
     cv::cvtColor(image, tmpGray, cv::COLOR_BGR2GRAY);
-    int erode_kernel = 3;
 
     // qDebug()<<"about to subtract bg";
 
@@ -71,19 +70,16 @@ cv::Mat SubtractBackground(const cv::Mat& image, cv::Ptr<cv::BackgroundSubtracto
     cv::threshold(fgMask, fgMask, 254, 255, cv::THRESH_BINARY);
 
     // Create kernel for erosion and dilation (morphological operations)
-    cv::Mat kernel = cv::Mat::ones(erode_kernel, erode_kernel, CV_8U);
 
     // Apply erosion
-    cv::Mat erodedMask;
-    cv::erode(fgMask, erodedMask, kernel, cv::Point(-1, -1), 1);
+    cv::erode(fgMask, fgMask, kernel, cv::Point(-1, -1), 1);
 
     // Apply dilation
-    cv::Mat dilatedMask;
-    cv::dilate(erodedMask, dilatedMask, kernel, cv::Point(-1, -1), 1);
+    cv::dilate(fgMask, fgMask, kernel, cv::Point(-1, -1), 1);
 
     // Return the new mask
 
-    return dilatedMask;
+    return fgMask;
 }
 
 

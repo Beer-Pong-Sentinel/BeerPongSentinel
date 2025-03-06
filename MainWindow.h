@@ -64,7 +64,7 @@ private:
 
     //possible variants: None, thresh and bgsub
     QString  processingType="None";
-    cv::Ptr<cv::BackgroundSubtractor> backSub = cv::createBackgroundSubtractorMOG2();
+    cv::Ptr<cv::BackgroundSubtractor> backSub =  cv::createBackgroundSubtractorMOG2(100, 16, false); 
     bool performingMotorCameraCalibration = false;
     std::atomic<bool> stopMotorCameraCalibrationFlag=false;
 
@@ -78,7 +78,7 @@ private:
     cv::Mat tmp1, tmp2;
     cv::Mat tmpGray1, tmpGray2;
     cv::Mat output1, output2;
-
+    cv::Mat kernel = cv::Mat::ones(3, 3, CV_8U);
 };
 
 #endif // MAINWINDOW_H
