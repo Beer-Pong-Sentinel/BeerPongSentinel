@@ -152,3 +152,11 @@ void ApplyMotionThreshold(const cv::Mat& input, cv::Mat& tmp, cv::Mat& output, c
     cv::absdiff(tmp, background, tmp);
     cv::threshold(tmp, output, threshold, 255, cv::THRESH_BINARY);
 }
+
+void ApplyMotionThresholdConsecutively(const cv::Mat& input, cv::Mat& tmp, cv::Mat& output, const cv::Mat& background, double threshold) {
+    if (background.empty()) return;
+    cv::cvtColor(input, tmp, cv::COLOR_BGR2GRAY);
+    cv::absdiff(tmp, background, tmp);
+    cv::threshold(tmp, tmp, threshold, 255, cv::THRESH_BINARY);
+    cv::bitwise_and(output, tmp, output);
+}

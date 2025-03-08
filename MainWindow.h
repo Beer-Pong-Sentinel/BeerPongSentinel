@@ -81,9 +81,9 @@ private:
     cv::Mat output1, output2;
     cv::Mat kernel = cv::Mat::ones(3, 3, CV_8U);
 
-    ProcessTimer* hsvTimer = new ProcessTimer("HSV Threshold", 5000, 5000, this);
-    ProcessTimer* motionTimer = new ProcessTimer("Motion Threshold", 5000, 5000, this);
-    ProcessTimer* totalTimer = new ProcessTimer("Total Processing", 5000, 5000, this);
+    ProcessTimer* hsvTimer = new ProcessTimer("HSV Threshold", 200, 5000, this);
+    ProcessTimer* motionTimer = new ProcessTimer("Motion Threshold", 200, 5000, this);
+    ProcessTimer* totalTimer = new ProcessTimer("Total Processing", 200, 5000, this);
 };
 
 #endif // MAINWINDOW_H

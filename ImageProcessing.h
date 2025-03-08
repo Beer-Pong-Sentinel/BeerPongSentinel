@@ -31,4 +31,6 @@ cv::Mat TestApplyHSVThreshold(const cv::Mat& input, double minH, double maxH, do
 
 void ApplyMotionThreshold(const cv::Mat& input, cv::Mat& tmp, cv::Mat& output, const cv::Mat& background, double threshold);
 
+void ApplyMotionThresholdConsecutively(const cv::Mat& input, cv::Mat& tmp, cv::Mat& output, const cv::Mat& background, double threshold);
+
 #endif // IMAGEPROCESSING_H

@@ -119,12 +119,13 @@ bool CameraCaptureThread::isCameraAvailable() const {
     return cameraAvailable;
 }
 
+std::atomic<bool> processingFrame(false); // Flag to track processing
+
 void CameraCaptureThread::run() {
     if (!camera1 || !camera2 || !running) {
         qDebug() << "Cameras not available or capture not started, aborting capture thread.";
         return;
     }
-
 
     while (running) {
         try {
@@ -140,33 +141,26 @@ void CameraCaptureThread::run() {
             cv::Mat matFrame1(image1->GetHeight(), image1->GetWidth(), CV_8UC3, image1->GetData());
             cv::Mat matFrame2(image2->GetHeight(), image2->GetWidth(), CV_8UC3, image2->GetData());
 
-            // Copy frames to ensure thread safety when emitting
             cv::Mat tempFrame1 = matFrame1.clone();
             cv::Mat tempFrame2 = matFrame2.clone();
 
-            {
-                QMutexLocker locker(&frameMutex);  // Lock mutex when updating frames
-                frame1 = tempFrame1;
-                frame2 = tempFrame2;
+            if (!processingFrame.exchange(true)) {  // If processing is not happening, update the frame
+                {
+                    QMutexLocker locker(&frameMutex);
+                    frame1 = tempFrame1;
+                    frame2 = tempFrame2;
+                }
+                emit newFrameReady(frame1, frame2);
             }
+            processingFrame = false;  // Reset the flag
 
             image1->Release();
             image2->Release();
-
-
-            emit newFrameReady(frame1, frame2);
-            //std::this_thread::sleep_for(std::chrono::milliseconds(3));
 
         } catch (Spinnaker::Exception &e) {
             qDebug() << "Spinnaker error:" << e.what();
         }
     }
-    camera1->EndAcquisition();
-    qDebug() << "camera1 stopped acquisition!!!";
-    //std::this_thread::sleep_for(std::chrono::milliseconds(500));
-    camera2->EndAcquisition();
-    qDebug() << "camera2 stopped acquisition!!!";
-
 }
 
 void CameraCaptureThread::stopCapture() {

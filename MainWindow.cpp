@@ -547,45 +547,44 @@ void MainWindow::receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv
 
         emit processedFramesReady(thresholdedImage1, thresholdedImage2);
     } else if (processingType == "BD") {
-        // qDebug() << "Applying Threshold";
-        // ApplyHSVThreshold(originalFrame1, tmp1, output1, 3, 30, 150, 200, 50, 115);
-        // ApplyHSVThreshold(originalFrame2, tmp2, output2, 3, 30, 150, 200, 50, 115);
-        // emit processedFramesReady(output1, output2);
-        // cv::Mat out1, out2;
-        // out1 = TestApplyHSVThreshold(originalFrame1, 3, 50, 90, 200, 50, 155);
-        // out2 = TestApplyHSVThreshold(originalFrame2, 3, 50, 90, 200, 50, 155);
-        // emit processedFramesReady(out1, out2);
-
         int thresholdValue = ui.processingBDThresholdSpinBox->value();
-        // QtConcurrent::run([this, originalFrame1, originalFrame2, thresholdValue]() {
-        //     totalTimer->timeVoid([&]() {
-        //         // Process first frame HSV
-        //         // hsvTimer->timeVoid([&]() {
-        //         //     ApplyHSVThreshold(originalFrame1, tmp1, output1, 40, 80, 50, 255, 30, 255);
-        //         // });
-                
-        //         // Process second frame HSV
-        //         ApplyHSVThreshold(originalFrame1, tmp1, output1, 40, 80, 50, 255, 30, 255);
-        //         ApplyHSVThreshold(originalFrame2, tmp2, output2, 40, 80, 50, 255, 30, 255);
-                
-        //         // // Process first frame motion
-        //         // motionTimer->timeVoid([&]() {
-        //         //     ApplyMotionThreshold(originalFrame1, tmpGray1, output1, backgroundImage1, thresholdValue);
-        //         // });
-                
-        //         // // Process second frame motion
-        //         // ApplyMotionThreshold(originalFrame2, tmpGray2, output2, backgroundImage2, thresholdValue);
-        //     });
-            
-        //     // Use Qt's signal-slot mechanism to update the GUI safely
-        //     emit processedFramesReady(output1, output2);
-        // });
+        QtConcurrent::run([this, originalFrame1, originalFrame2, thresholdValue]() {
+            totalTimer->timeVoid([&]() {
+                // Run HSV processing in parallel
+                hsvTimer->timeVoid([&]() {
+                    QFuture<void> futureHSV1 = QtConcurrent::run([&]() {
+                        ApplyHSVThreshold(originalFrame1, tmp1, output1, 40, 80, 50, 255, 30, 255);
+                    });
 
-        totalTimer->timeVoid([&]() {
-            ApplyHSVThreshold(originalFrame1, tmp1, output1, 40, 80, 50, 255, 30, 255);
-            ApplyHSVThreshold(originalFrame2, tmp2, output2, 40, 80, 50, 255, 30, 255);
+                    QFuture<void> futureHSV2 = QtConcurrent::run([&]() {
+                        ApplyHSVThreshold(originalFrame2, tmp2, output2, 40, 80, 50, 255, 30, 255);
+                    });
+                
+
+                    futureHSV1.waitForFinished();
+                    futureHSV2.waitForFinished();
+                });
+
+                // Run motion processing in parallel
+                motionTimer->timeVoid([&]() {
+                    QFuture<void> futureMotion1 = QtConcurrent::run([&]() {
+                        ApplyMotionThresholdConsecutively(originalFrame1, tmpGray1, output1, backgroundImage1, thresholdValue);
+                    });
+                    
+
+                    QFuture<void> futureMotion2 = QtConcurrent::run([&]() {
+                        ApplyMotionThresholdConsecutively(originalFrame1, tmpGray2, output2, backgroundImage2, thresholdValue);
+                    });
+                
+
+                    futureMotion1.waitForFinished();
+                    futureMotion2.waitForFinished();
+                });
+            });
+
+            // Emit the processed frames
+            emit processedFramesReady(output1, output2);
         });
-        emit processedFramesReady(output1, output2);  
     } else {
         emit processedFramesReady(originalFrame1, originalFrame2);
     }
