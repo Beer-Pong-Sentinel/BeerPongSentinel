@@ -10,6 +10,8 @@
 #include <QtCore/QFile>
 #include "CameraStreamWidget.h"
 #include "CameraCalibration.h"
+#include "AltitudeControl.h"
+#include "AzimuthControl.h"
 #include <chrono>
 #include <thread>
 #include <gl/GL.h>
@@ -39,7 +41,13 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
 
     // Configure the serial port (modify these settings as necessary for your device)
 
-    serialPort->setPortName("COM4");
+    serialPort->setPortName("COM7");
+
+    if (!serialPort->open(QIODevice::ReadWrite)) {
+        qDebug() << "Error: Failed to open serial port" << serialPort->portName();
+        return;
+    }
+
     qDebug()<< "set com3";
     serialPort->setBaudRate(QSerialPort::Baud115200);
     qDebug()<< "set baud rate";
@@ -63,10 +71,15 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
     connect(ui.startCameraCaptureThreadButton, &QPushButton::clicked, this, &MainWindow::startCapture);
     connect(ui.stopCameraCaptureThreadButton, &QPushButton::clicked, this, &MainWindow::stopCapture);
     connect(ui.startMotorCameraCalibrationButton, &QPushButton::clicked, this, &MainWindow::calibrateMotorCamera);
-    connect(ui.sendMotorPositionButton, &QPushButton::clicked, this, &MainWindow::queryMotorPositionHardCode);
+    connect(ui.sendMotorPositionButton, &QPushButton::clicked, this, &MainWindow::sendMotorPositions);
     connect(ui.setProcessingButton, &QPushButton::clicked, this, &MainWindow::setProcesseing);
     connect(ui.calibrateSphericalButton, &QPushButton::clicked, this, &MainWindow::sphericalCalibration);
     connect(ui.targetAimButton, &QPushButton::clicked, this, &MainWindow::sphericalTest);
+    connect(ui.initAlPushButton, &QPushButton::clicked, this, &MainWindow::initializeAltitude);
+    connect(ui.initAzPushButton, &QPushButton::clicked, this, &MainWindow::initializeAzimuth);
+
+    connect(ui.sendAltitudeButton, &QPushButton::clicked, this, &MainWindow::altitudeTest);
+    connect(ui.sendAzimuthButton, &QPushButton::clicked, this, &MainWindow::azimuthTest);
     connect(this, &MainWindow::processedFramesReady, this, &MainWindow::onProcessedFramesReady);
 
 
@@ -803,6 +816,9 @@ void MainWindow::sphericalTest() {
     qDebug() << "Calculated altitude" << optimalAltitude << "\n";
     // TODO: move the motors to their desired angles
 }
+
+
+
 // ************** IGNORE FUNCTIONS BELOW *******************************
 
 // The functions below use serial to communicate with the blue pill to
@@ -884,6 +900,31 @@ void MainWindow::calibrateMotorCamera() {
     });
 }
 
+void MainWindow::initializeAltitude() {
+    altitudePointer = initializeAltitudeMotor();
+}
+
+void MainWindow::initializeAzimuth() {
+    initializeAzimuthMotor(serialPort, azimuthPosition);
+    azimuthPosition = 0;
+
+}
+
+void MainWindow::altitudeTest() {
+    float absoluteAngle = ui.altValueSpinBox->value();
+    moveAltitudeMotor(altitudePointer, absoluteAngle);
+}
+
+void MainWindow::azimuthTest() {
+    float absoluteAngle = ui.aziValueSpinBox->value();
+    azimuthPosition += moveAzimuthMotor(serialPort, absoluteAngle);
+}
+
+
+void MainWindow::sendMotorPositions() {
+    azimuthTest();
+    altitudeTest();
+}
 
 void MainWindow::queryMotorPosition(quint16 aziValue, quint16 altValue, QSerialPort &localSerialPort) {
 

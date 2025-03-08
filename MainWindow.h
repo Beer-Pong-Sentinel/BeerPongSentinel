@@ -10,6 +10,8 @@
 #include <QSerialPort>
 #include <QMutex>
 #include <time.h>
+#include "pubSysCls.h"  
+
 
     class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -70,6 +72,20 @@ private:
     cv::Mat displacementFromLEDPlaneToOrigin = (cv::Mat_<float>(3, 1) << 0, 0, 10.0); // CHANGE THIS
     cv::Mat rotationMatrix;
     cv::Mat sphericalOrigin;
+
+    // for altitude motor
+    sFnd::INode* altitudePointer;
+    void initializeAltitude();
+    void altitudeTest();
+
+    // for azimuth motor
+    void initializeAzimuth();
+    void azimuthTest();
+    const wchar_t* azimuthPort = L"\\\\.\\COM4";
+    int azimuthPosition = 0;
+
+
+    void sendMotorPositions();
 
 
 };

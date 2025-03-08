@@ -140,6 +140,20 @@
          </property>
         </widget>
        </item>
+       <item row="1" column="3">
+        <widget class="QCheckBox" name="checkBox">
+         <property name="text">
+          <string>Azimuth Initialized</string>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="3">
+        <widget class="QCheckBox" name="checkBox_2">
+         <property name="text">
+          <string>Altitude Initialized</string>
+         </property>
+        </widget>
+       </item>
       </layout>
      </widget>
     </item>
@@ -335,58 +349,89 @@
              <string>Motor Control</string>
             </property>
             <layout class="QGridLayout" name="gridLayout_9">
-             <item row="0" column="1">
-              <widget class="QSpinBox" name="aziValueSpinBox">
-               <property name="maximum">
-                <number>1000</number>
-               </property>
-               <property name="value">
-                <number>100</number>
-               </property>
-              </widget>
-             </item>
-             <item row="2" column="1">
-              <widget class="QLabel" name="label_23">
-               <property name="text">
-                <string>Received Position:</string>
-               </property>
-              </widget>
-             </item>
-             <item row="1" column="0">
-              <widget class="QLabel" name="label_15">
-               <property name="text">
-                <string>Altitude</string>
-               </property>
-              </widget>
-             </item>
-             <item row="1" column="1">
-              <widget class="QSpinBox" name="altValueSpinBox">
-               <property name="maximum">
-                <number>1000</number>
-               </property>
-               <property name="value">
-                <number>100</number>
-               </property>
-              </widget>
-             </item>
-             <item row="2" column="0">
+             <item row="4" column="0">
               <widget class="QPushButton" name="sendMotorPositionButton">
                <property name="text">
                 <string>Send Position</string>
                </property>
               </widget>
              </item>
-             <item row="0" column="0">
+             <item row="4" column="2">
+              <widget class="QLabel" name="label_24">
+               <property name="text">
+                <string>(0, 0)</string>
+               </property>
+              </widget>
+             </item>
+             <item row="3" column="0">
+              <widget class="QLabel" name="label_15">
+               <property name="text">
+                <string>Altitude</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="1">
+              <widget class="QSpinBox" name="aziValueSpinBox">
+               <property name="minimum">
+                <number>-45</number>
+               </property>
+               <property name="maximum">
+                <number>45</number>
+               </property>
+               <property name="value">
+                <number>0</number>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="0">
               <widget class="QLabel" name="label_10">
                <property name="text">
                 <string>Azimuth</string>
                </property>
               </widget>
              </item>
-             <item row="2" column="2">
-              <widget class="QLabel" name="label_24">
+             <item row="3" column="1">
+              <widget class="QSpinBox" name="altValueSpinBox">
+               <property name="maximum">
+                <number>60</number>
+               </property>
+               <property name="value">
+                <number>0</number>
+               </property>
+              </widget>
+             </item>
+             <item row="4" column="1">
+              <widget class="QLabel" name="label_23">
                <property name="text">
-                <string>(0, 0)</string>
+                <string>Received Position:</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="0" colspan="2">
+              <widget class="QPushButton" name="initAzPushButton">
+               <property name="text">
+                <string>Initialize Azimuth</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="0" colspan="2">
+              <widget class="QPushButton" name="initAlPushButton">
+               <property name="text">
+                <string>Initialize Altitude</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="2">
+              <widget class="QPushButton" name="sendAzimuthButton">
+               <property name="text">
+                <string>Send Azimuth</string>
+               </property>
+              </widget>
+             </item>
+             <item row="3" column="2">
+              <widget class="QPushButton" name="sendAltitudeButton">
+               <property name="text">
+                <string>Send Altitude</string>
                </property>
               </widget>
              </item>
@@ -1099,7 +1144,7 @@ This will automatically move calculate the transfer matrix between the encoder c
      <x>0</x>
      <y>0</y>
      <width>1360</width>
-     <height>25</height>
+     <height>19</height>
     </rect>
    </property>
   </widget>
@@ -1119,7 +1164,7 @@ This will automatically move calculate the transfer matrix between the encoder c
  <resources/>
  <connections/>
  <buttongroups>
-  <buttongroup name="showProcessingButtonGroup"/>
   <buttongroup name="selectCal3DTypeButtonGroup"/>
+  <buttongroup name="showProcessingButtonGroup"/>
  </buttongroups>
 </ui>
