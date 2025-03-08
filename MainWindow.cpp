@@ -492,15 +492,8 @@ void MainWindow::saveProcessedFrames() {
             qDebug() << "Saved processed frames:";
             qDebug() << "Frame 1 saved to:" << frame1Path;
             qDebug() << "Frame 2 saved to:" << frame2Path;
-            
-            // Emit a signal to show a message in the UI thread
-            QMetaObject::invokeMethod(this, "showSaveSuccessMessage", Qt::QueuedConnection, 
-                                    Q_ARG(QString, saveDir));
         } else {
             qDebug() << "Error saving frames. Frame 1 saved:" << frame1Saved << ", Frame 2 saved:" << frame2Saved;
-            
-            // Emit a signal to show an error message in the UI thread
-            QMetaObject::invokeMethod(this, "showSaveErrorMessage", Qt::QueuedConnection);
         }
     });
     
