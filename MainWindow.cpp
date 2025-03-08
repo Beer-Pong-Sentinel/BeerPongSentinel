@@ -69,6 +69,7 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
     connect(ui.targetAimButton, &QPushButton::clicked, this, &MainWindow::sphericalTest);
     connect(ui.setBackgroundImageButton, &QPushButton::clicked, this, &MainWindow::setBackgroundImage);
     connect(this, &MainWindow::processedFramesReady, this, &MainWindow::onProcessedFramesReady);
+    connect(ui.takePictureButton, &QPushButton::clicked, this, &MainWindow::saveProcessedFrames);
 
 
 
@@ -441,10 +442,69 @@ void MainWindow::stopCapture() {
     ui.cameraStreamWidget->setDefaultBlackFrame();
 }
 
+void MainWindow::saveProcessedFrames() {
+    if (!captureThread) {
+        qDebug() << "Capture thread is not running. Cannot save frames.";
+        return;
+    }
 
+    // Get the latest processed frames
+    cv::Mat frame1, frame2;
+    
+    if (processingType == "None") {
+        frame1 = captureThread->getFrame1().clone(); // Clone to ensure thread safety
+        frame2 = captureThread->getFrame2().clone();
+    } else {
+        // If processing is enabled, try to get the latest processed frames
+        frame1 = output1.clone();
+        frame2 = output2.clone();
+        
+        // Fallback to raw frames if processed frames aren't available
+        if (frame1.empty() || frame2.empty()) {
+            frame1 = captureThread->getFrame1().clone();
+            frame2 = captureThread->getFrame2().clone();
+        }
+    }
 
+    if (frame1.empty() || frame2.empty()) {
+        qDebug() << "One or both frames are empty. Cannot save.";
+        return;
+    }
 
-
+    // Run the saving operation in a separate thread
+    QtConcurrent::run([this, frame1, frame2]() {
+        // Create a timestamp for unique filenames
+        QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd_hh-mm-ss");
+        
+        // Define directory for saving
+        QString saveDir = "../../ProcessedFrames/";
+        QDir().mkpath(saveDir);  // Create directory if it doesn't exist
+        
+        // Define file paths with timestamp
+        QString frame1Path = saveDir + "frame1_" + timestamp + ".jpeg";
+        QString frame2Path = saveDir + "frame2_" + timestamp + ".jpeg";
+        
+        // Save the frames
+        bool frame1Saved = cv::imwrite(frame1Path.toStdString(), frame1);
+        bool frame2Saved = cv::imwrite(frame2Path.toStdString(), frame2);
+        
+        if (frame1Saved && frame2Saved) {
+            qDebug() << "Saved processed frames:";
+            qDebug() << "Frame 1 saved to:" << frame1Path;
+            qDebug() << "Frame 2 saved to:" << frame2Path;
+            
+            // Emit a signal to show a message in the UI thread
+            QMetaObject::invokeMethod(this, "showSaveSuccessMessage", Qt::QueuedConnection, 
+                                    Q_ARG(QString, saveDir));
+        } else {
+            qDebug() << "Error saving frames. Frame 1 saved:" << frame1Saved << ", Frame 2 saved:" << frame2Saved;
+            
+            // Emit a signal to show an error message in the UI thread
+            QMetaObject::invokeMethod(this, "showSaveErrorMessage", Qt::QueuedConnection);
+        }
+    });
+    
+}
 
 // THIS IS WHERE THE FRAME PROCESSING HAPPENS!!!!!!
 
@@ -547,43 +607,49 @@ void MainWindow::receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv
 
         emit processedFramesReady(thresholdedImage1, thresholdedImage2);
     } else if (processingType == "BD") {
-        int thresholdValue = ui.processingBDThresholdSpinBox->value();
-        QtConcurrent::run([this, originalFrame1, originalFrame2, thresholdValue]() {
+        setBDValues();
+        QtConcurrent::run([this, originalFrame1, originalFrame2]() {
             totalTimer->timeVoid([&]() {
-                // Run HSV processing in parallel
-                hsvTimer->timeVoid([&]() {
-                    QFuture<void> futureHSV1 = QtConcurrent::run([&]() {
-                        ApplyHSVThreshold(originalFrame1, tmp1, output1, 40, 80, 50, 255, 30, 255);
+                // Run processing in parallel
+                QFuture<void> futureOutput1 = QtConcurrent::run([&]() {
+                    if (hsvEnabled) hsvTimer->timeVoid([&]() { 
+                        ApplyHSVThreshold(originalFrame1, tmp1, output1, hMin, hMax, sMin, sMax, vMin, vMax); 
                     });
-
-                    QFuture<void> futureHSV2 = QtConcurrent::run([&]() {
-                        ApplyHSVThreshold(originalFrame2, tmp2, output2, 40, 80, 50, 255, 30, 255);
-                    });
-                
-
-                    futureHSV1.waitForFinished();
-                    futureHSV2.waitForFinished();
+                    if (hsvEnabled && motionEnabled) {
+                        motionTimer->timeVoid([&]() {
+                            ApplyMotionThresholdConsecutively(originalFrame1, tmpGray1, output1, backgroundImage1, thresholdValue);
+                        });
+                    } else if (motionEnabled) {
+                        motionTimer->timeVoid([&]() {
+                            ApplyMotionThreshold(originalFrame1, tmpGray1, output1, backgroundImage1, thresholdValue);
+                        });
+                    }
+                    if ((hsvEnabled || motionEnabled) && morphEnabled) {
+                        ApplyMorphClosing(output1, kernel);
+                    }
                 });
 
-                // Run motion processing in parallel
-                motionTimer->timeVoid([&]() {
-                    QFuture<void> futureMotion1 = QtConcurrent::run([&]() {
-                        ApplyMotionThresholdConsecutively(originalFrame1, tmpGray1, output1, backgroundImage1, thresholdValue);
-                    });
-                    
+                QFuture<void> futureOutput2 = QtConcurrent::run([&]() {
+                    if (hsvEnabled) ApplyHSVThreshold(originalFrame2, tmp2, output2, hMin, hMax, sMin, sMax, vMin, vMax);
 
-                    QFuture<void> futureMotion2 = QtConcurrent::run([&]() {
-                        ApplyMotionThresholdConsecutively(originalFrame1, tmpGray2, output2, backgroundImage2, thresholdValue);
-                    });
-                
+                    if (hsvEnabled && motionEnabled) {
+                        ApplyMotionThresholdConsecutively(originalFrame2, tmpGray2, output2, backgroundImage2, thresholdValue);
+                    } else if (motionEnabled) {
+                        ApplyMotionThreshold(originalFrame2, tmpGray2, output2, backgroundImage2, thresholdValue);
+                    }
 
-                    futureMotion1.waitForFinished();
-                    futureMotion2.waitForFinished();
+                    if ((hsvEnabled || motionEnabled) && morphEnabled) {
+                        ApplyMorphClosing(output2, kernel);
+                    }
                 });
+            
+
+                futureOutput1.waitForFinished();
+                futureOutput2.waitForFinished();
+
+                // Emit the processed frames
+                emit processedFramesReady(output1, output2);
             });
-
-            // Emit the processed frames
-            emit processedFramesReady(output1, output2);
         });
     } else {
         emit processedFramesReady(originalFrame1, originalFrame2);
@@ -1045,5 +1111,24 @@ void MainWindow::setBackgroundImage() {
     return;
 }
 
+void MainWindow::setBDValues() {
+    motionEnabled = ui.processingMotionEnabled->isChecked();
+    hsvEnabled = ui.processingHSVEnabled->isChecked();
+    morphEnabled = ui.processingMorphEnabled->isChecked();
+    thresholdValue = ui.processingBDThresholdSpinBox->value();
+    hMax = ui.processingHMax->value();
+    hMin = ui.processingHMin->value();
+    sMin = ui.processingSMin->value();
+    sMax = ui.processingSMax->value();
+    vMin = ui.processingVMin->value();
+    vMax = ui.processingVMax->value();
+
+    kernelSize = ui.processingMorphKernelSize->value();
+    if (prevKernelSize != kernelSize) {
+        kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(kernelSize, kernelSize));
+        prevKernelSize = kernelSize;
+    } 
+
+}
 
 

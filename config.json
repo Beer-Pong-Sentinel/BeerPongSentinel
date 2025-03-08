@@ -2,7 +2,7 @@
   "acquisition": {
     "AcquisitionMode": "Continuous",
     "ExposureAuto": "Off",
-    "ExposureTime": 66666.0,
+    "ExposureTime": 33333.0,
     "GainAuto": "Off",
     "Gain": 5.0
   },

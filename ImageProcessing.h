@@ -33,4 +33,6 @@ void ApplyMotionThreshold(const cv::Mat& input, cv::Mat& tmp, cv::Mat& output, c
 
 void ApplyMotionThresholdConsecutively(const cv::Mat& input, cv::Mat& tmp, cv::Mat& output, const cv::Mat& background, double threshold);
 
+void ApplyMorphClosing(cv::Mat& input, cv::Mat& kernel);
+
 #endif // IMAGEPROCESSING_H

@@ -62,6 +62,8 @@ private:
     void sphericalTest();
     void queryMotorPosition(quint16 aziValue, quint16 altValue, QSerialPort &localSerialPort);
     void queryMotorPositionHardCode();
+    void setBDValues();
+    void saveProcessedFrames();
 
     //possible variants: None, thresh and bgsub
     QString  processingType="None";
@@ -75,11 +77,14 @@ private:
     cv::Mat sphericalOrigin;
 
     // for ball detection
+    int thresholdValue, hMax, hMin, sMax, sMin, vMax, vMin;
+    bool hsvEnabled = true, motionEnabled = true, morphEnabled = true;
+    int kernelSize = 5, prevKernelSize = kernelSize;
     cv::Mat backgroundImage1, backgroundImage2;
     cv::Mat tmp1, tmp2;
     cv::Mat tmpGray1, tmpGray2;
     cv::Mat output1, output2;
-    cv::Mat kernel = cv::Mat::ones(3, 3, CV_8U);
+    cv::Mat kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(kernelSize, kernelSize));
 
     ProcessTimer* hsvTimer = new ProcessTimer("HSV Threshold", 200, 5000, this);
     ProcessTimer* motionTimer = new ProcessTimer("Motion Threshold", 200, 5000, this);

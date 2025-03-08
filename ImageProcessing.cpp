@@ -160,3 +160,7 @@ void ApplyMotionThresholdConsecutively(const cv::Mat& input, cv::Mat& tmp, cv::M
     cv::threshold(tmp, tmp, threshold, 255, cv::THRESH_BINARY);
     cv::bitwise_and(output, tmp, output);
 }
+
+void ApplyMorphClosing(cv::Mat& input, cv::Mat& kernel) {
+    cv::morphologyEx(input, input, cv::MORPH_OPEN, kernel); 
+}
