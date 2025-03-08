@@ -157,26 +157,7 @@
       </layout>
      </widget>
     </item>
-    <item row="0" column="2">
-     <widget class="CameraStreamWidget" name="cameraStreamWidget">
-      <property name="sizePolicy">
-       <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-        <horstretch>0</horstretch>
-        <verstretch>0</verstretch>
-       </sizepolicy>
-      </property>
-      <property name="minimumSize">
-       <size>
-        <width>720</width>
-        <height>270</height>
-       </size>
-      </property>
-      <property name="toolTip">
-       <string/>
-      </property>
-     </widget>
-    </item>
-    <item row="0" column="1">
+    <item row="0" column="0">
      <widget class="QTabWidget" name="tabWidget">
       <property name="enabled">
        <bool>true</bool>
@@ -201,10 +182,13 @@
            <string>Capture</string>
           </property>
           <layout class="QGridLayout" name="gridLayout_8">
-           <item row="1" column="0">
-            <widget class="QPushButton" name="pushButton_3">
+           <item row="1" column="1">
+            <widget class="QPushButton" name="pushButton_4">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
              <property name="text">
-              <string>Take Picture</string>
+              <string>Record Video</string>
              </property>
             </widget>
            </item>
@@ -225,13 +209,10 @@
              </property>
             </widget>
            </item>
-           <item row="1" column="1">
-            <widget class="QPushButton" name="pushButton_4">
-             <property name="enabled">
-              <bool>false</bool>
-             </property>
+           <item row="1" column="0">
+            <widget class="QPushButton" name="pushButton_3">
              <property name="text">
-              <string>Record Video</string>
+              <string>Take Picture</string>
              </property>
             </widget>
            </item>
@@ -244,17 +225,14 @@
            <string>Processing</string>
           </property>
           <layout class="QGridLayout" name="gridLayout">
-           <item row="0" column="0">
-            <widget class="QRadioButton" name="showProcessingNoneRadioButton">
+           <item row="2" column="1">
+            <widget class="QSpinBox" name="processingBGSubThresholdSpinBox"/>
+           </item>
+           <item row="3" column="0">
+            <widget class="QPushButton" name="setProcessingButton">
              <property name="text">
-              <string>None</string>
+              <string>Set</string>
              </property>
-             <property name="checked">
-              <bool>true</bool>
-             </property>
-             <attribute name="buttonGroup">
-              <string notr="true">showProcessingButtonGroup</string>
-             </attribute>
             </widget>
            </item>
            <item row="2" column="0">
@@ -267,6 +245,23 @@
              </attribute>
             </widget>
            </item>
+           <item row="1" column="4">
+            <widget class="QPushButton" name="testSetSecondPosButton">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+             <property name="text">
+              <string>Set 2nd Pos</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="3">
+            <widget class="QCheckBox" name="processingBGSubShowTrajectoryCheckBox">
+             <property name="text">
+              <string>Predicted trajectory</string>
+             </property>
+            </widget>
+           </item>
            <item row="1" column="3">
             <widget class="QPushButton" name="testSetFirstPosButton">
              <property name="enabled">
@@ -274,13 +269,6 @@
              </property>
              <property name="text">
               <string>Set 1st Pos</string>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="2">
-            <widget class="QCheckBox" name="processingBGSubShowCentroidsCheckBox">
-             <property name="text">
-              <string>Centroids</string>
              </property>
             </widget>
            </item>
@@ -294,30 +282,10 @@
              </attribute>
             </widget>
            </item>
-           <item row="2" column="3">
-            <widget class="QCheckBox" name="processingBGSubShowTrajectoryCheckBox">
+           <item row="2" column="2">
+            <widget class="QCheckBox" name="processingBGSubShowCentroidsCheckBox">
              <property name="text">
-              <string>Predicted trajectory</string>
-             </property>
-            </widget>
-           </item>
-           <item row="3" column="0">
-            <widget class="QPushButton" name="setProcessingButton">
-             <property name="text">
-              <string>Set</string>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="1">
-            <widget class="QSpinBox" name="processingBGSubThresholdSpinBox"/>
-           </item>
-           <item row="1" column="1">
-            <widget class="QSpinBox" name="processingThresholdingThresholdSpinBox">
-             <property name="maximum">
-              <number>255</number>
-             </property>
-             <property name="value">
-              <number>230</number>
+              <string>Centroids</string>
              </property>
             </widget>
            </item>
@@ -328,13 +296,26 @@
              </property>
             </widget>
            </item>
-           <item row="1" column="4">
-            <widget class="QPushButton" name="testSetSecondPosButton">
-             <property name="enabled">
-              <bool>false</bool>
-             </property>
+           <item row="0" column="0">
+            <widget class="QRadioButton" name="showProcessingNoneRadioButton">
              <property name="text">
-              <string>Set 2nd Pos</string>
+              <string>None</string>
+             </property>
+             <property name="checked">
+              <bool>true</bool>
+             </property>
+             <attribute name="buttonGroup">
+              <string notr="true">showProcessingButtonGroup</string>
+             </attribute>
+            </widget>
+           </item>
+           <item row="1" column="1">
+            <widget class="QSpinBox" name="processingThresholdingThresholdSpinBox">
+             <property name="maximum">
+              <number>255</number>
+             </property>
+             <property name="value">
+              <number>230</number>
              </property>
             </widget>
            </item>
@@ -349,24 +330,76 @@
              <string>Motor Control</string>
             </property>
             <layout class="QGridLayout" name="gridLayout_9">
-             <item row="4" column="0">
+             <item row="2" column="0">
+              <widget class="QLabel" name="label_10">
+               <property name="text">
+                <string>Azimuth Degree</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="2">
+              <widget class="QPushButton" name="sendAzimuthButton">
+               <property name="text">
+                <string>Send Azimuth</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="2" colspan="2">
+              <widget class="QPushButton" name="disableAzButton">
+               <property name="text">
+                <string>Disable Azimuth</string>
+               </property>
+              </widget>
+             </item>
+             <item row="5" column="0">
+              <widget class="QLabel" name="label_15">
+               <property name="text">
+                <string>Altitude Degree</string>
+               </property>
+              </widget>
+             </item>
+             <item row="5" column="2">
+              <widget class="QPushButton" name="sendAltitudeButton">
+               <property name="text">
+                <string>Send Altitude</string>
+               </property>
+              </widget>
+             </item>
+             <item row="3" column="0" colspan="4">
+              <widget class="Line" name="line">
+               <property name="orientation">
+                <enum>Qt::Orientation::Horizontal</enum>
+               </property>
+              </widget>
+             </item>
+             <item row="7" column="0">
               <widget class="QPushButton" name="sendMotorPositionButton">
                <property name="text">
                 <string>Send Position</string>
                </property>
               </widget>
              </item>
-             <item row="4" column="2">
-              <widget class="QLabel" name="label_24">
-               <property name="text">
-                <string>(0, 0)</string>
+             <item row="5" column="1">
+              <widget class="QSpinBox" name="altValueSpinBox">
+               <property name="maximum">
+                <number>60</number>
+               </property>
+               <property name="value">
+                <number>0</number>
                </property>
               </widget>
              </item>
-             <item row="3" column="0">
-              <widget class="QLabel" name="label_15">
+             <item row="0" column="0" colspan="2">
+              <widget class="QPushButton" name="enableAzButton">
                <property name="text">
-                <string>Altitude</string>
+                <string>Enable Azimuth</string>
+               </property>
+              </widget>
+             </item>
+             <item row="4" column="0" colspan="4">
+              <widget class="QPushButton" name="initAlPushButton">
+               <property name="text">
+                <string>Initialize Altitude</string>
                </property>
               </widget>
              </item>
@@ -383,55 +416,24 @@
                </property>
               </widget>
              </item>
-             <item row="2" column="0">
-              <widget class="QLabel" name="label_10">
-               <property name="text">
-                <string>Azimuth</string>
-               </property>
-              </widget>
-             </item>
-             <item row="3" column="1">
-              <widget class="QSpinBox" name="altValueSpinBox">
-               <property name="maximum">
-                <number>60</number>
-               </property>
-               <property name="value">
-                <number>0</number>
-               </property>
-              </widget>
-             </item>
-             <item row="4" column="1">
-              <widget class="QLabel" name="label_23">
-               <property name="text">
-                <string>Received Position:</string>
-               </property>
-              </widget>
-             </item>
-             <item row="0" column="0" colspan="2">
+             <item row="2" column="3">
               <widget class="QPushButton" name="initAzPushButton">
                <property name="text">
-                <string>Initialize Azimuth</string>
+                <string>Reset to Zero</string>
                </property>
               </widget>
              </item>
-             <item row="1" column="0" colspan="2">
-              <widget class="QPushButton" name="initAlPushButton">
-               <property name="text">
-                <string>Initialize Altitude</string>
+             <item row="6" column="0" colspan="4">
+              <widget class="Line" name="line_2">
+               <property name="orientation">
+                <enum>Qt::Orientation::Horizontal</enum>
                </property>
               </widget>
              </item>
-             <item row="2" column="2">
-              <widget class="QPushButton" name="sendAzimuthButton">
+             <item row="7" column="1">
+              <widget class="QPushButton" name="fireButton">
                <property name="text">
-                <string>Send Azimuth</string>
-               </property>
-              </widget>
-             </item>
-             <item row="3" column="2">
-              <widget class="QPushButton" name="sendAltitudeButton">
-               <property name="text">
-                <string>Send Altitude</string>
+                <string>Fire</string>
                </property>
               </widget>
              </item>
@@ -1131,6 +1133,25 @@ This will automatically move calculate the transfer matrix between the encoder c
         <string>Game</string>
        </attribute>
       </widget>
+     </widget>
+    </item>
+    <item row="0" column="2">
+     <widget class="CameraStreamWidget" name="cameraStreamWidget">
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+        <horstretch>0</horstretch>
+        <verstretch>0</verstretch>
+       </sizepolicy>
+      </property>
+      <property name="minimumSize">
+       <size>
+        <width>720</width>
+        <height>270</height>
+       </size>
+      </property>
+      <property name="toolTip">
+       <string/>
+      </property>
      </widget>
     </item>
    </layout>

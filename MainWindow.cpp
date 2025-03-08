@@ -45,7 +45,6 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
 
     if (!serialPort->open(QIODevice::ReadWrite)) {
         qDebug() << "Error: Failed to open serial port" << serialPort->portName();
-        return;
     }
 
     qDebug()<< "set com3";
@@ -75,8 +74,16 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
     connect(ui.setProcessingButton, &QPushButton::clicked, this, &MainWindow::setProcesseing);
     connect(ui.calibrateSphericalButton, &QPushButton::clicked, this, &MainWindow::sphericalCalibration);
     connect(ui.targetAimButton, &QPushButton::clicked, this, &MainWindow::sphericalTest);
+
+    connect(ui.fireButton, &QPushButton::clicked, this, &MainWindow::fire);
+
+
     connect(ui.initAlPushButton, &QPushButton::clicked, this, &MainWindow::initializeAltitude);
     connect(ui.initAzPushButton, &QPushButton::clicked, this, &MainWindow::initializeAzimuth);
+    connect(ui.enableAzButton, &QPushButton::clicked, this, &MainWindow::enableAzimuth);
+    connect(ui.disableAzButton, &QPushButton::clicked, this, &MainWindow::disableAzimuth);
+
+
 
     connect(ui.sendAltitudeButton, &QPushButton::clicked, this, &MainWindow::altitudeTest);
     connect(ui.sendAzimuthButton, &QPushButton::clicked, this, &MainWindow::azimuthTest);
@@ -900,12 +907,34 @@ void MainWindow::calibrateMotorCamera() {
     });
 }
 
+void MainWindow::sendSerialMessage(QString baseMessage) {
+    QString serialMessage = baseMessage + "\n";
+    qint64 bytesWritten = serialPort->write(serialMessage.toUtf8());
+    if (bytesWritten == -1) {
+        qDebug() << "Error: Failed to write data to serial port.";
+    } else {
+        qDebug() << "Message sent successfully:" << serialMessage.trimmed();
+    }
+}
+
+void MainWindow::fire() {
+    sendSerialMessage("t");
+}
+
+void MainWindow::enableAzimuth() {
+    sendSerialMessage("e");
+}
+
+void MainWindow::disableAzimuth() {
+    sendSerialMessage("d");
+}
+
 void MainWindow::initializeAltitude() {
     altitudePointer = initializeAltitudeMotor();
 }
 
 void MainWindow::initializeAzimuth() {
-    initializeAzimuthMotor(serialPort, azimuthPosition);
+    sendSerialMessage(QString::number(-1*azimuthPosition));
     azimuthPosition = 0;
 
 }
@@ -917,7 +946,9 @@ void MainWindow::altitudeTest() {
 
 void MainWindow::azimuthTest() {
     float absoluteAngle = ui.aziValueSpinBox->value();
-    azimuthPosition += moveAzimuthMotor(serialPort, absoluteAngle);
+    int steps = absoluteAngle / 0.45;
+    sendSerialMessage(QString::number(steps));
+    azimuthPosition += steps;
 }
 
 

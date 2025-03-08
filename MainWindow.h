@@ -53,6 +53,7 @@ private:
     cv::Mat P2;                      // Projection matrix for camera 2
     double projectionError = 0.0;
     QSerialPort *serialPort;
+    void sendSerialMessage(QString baseMessage);
     void calibrateMotorCamera();
     std::vector<cv::Mat> getLEDCoords();
     std::vector<cv::Point> reorderCentroids(const std::vector<cv::Point>& centroids);
@@ -73,6 +74,9 @@ private:
     cv::Mat rotationMatrix;
     cv::Mat sphericalOrigin;
 
+    // triggering
+    void fire();
+
     // for altitude motor
     sFnd::INode* altitudePointer;
     void initializeAltitude();
@@ -81,7 +85,8 @@ private:
     // for azimuth motor
     void initializeAzimuth();
     void azimuthTest();
-    const wchar_t* azimuthPort = L"\\\\.\\COM4";
+    void enableAzimuth();
+    void disableAzimuth();
     int azimuthPosition = 0;
 
 
