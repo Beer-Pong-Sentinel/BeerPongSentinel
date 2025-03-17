@@ -81,6 +81,7 @@ private:
     sFnd::INode* altitudePointer;
     void initializeAltitude();
     void altitudeTest();
+    void altitudeTimeTest();
 
     // for azimuth motor
     void initializeAzimuth();

@@ -7,6 +7,6 @@ using namespace sFnd;
 
 
 INode* initializeAltitudeMotor();
-void moveAltitudeMotor(INode* altitudePointer, float absoluteAngle);
+double moveAltitudeMotor(INode* altitudePointer, float absoluteAngle, int rpmLimit);
 
 #endif // ALTITUDECONTROL_H

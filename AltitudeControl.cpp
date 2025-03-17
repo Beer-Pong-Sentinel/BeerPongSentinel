@@ -156,29 +156,39 @@ INode* initializeAltitudeMotor()
     return nullptr;
 }
 
-void moveAltitudeMotor(INode* altitudePointer, float absoluteAngle) {
+double moveAltitudeMotor(INode* altitudePointer, float absoluteAngle, int rpmLimit=0) {
     if (altitudePointer == nullptr) {
         qDebug() << "Altitude motor not initialized";
-        return;
+        return 0;
     }
+    SysManager* myMgr = SysManager::Instance();                           //Create System Manager myMgr
+
     INode &theNode = *altitudePointer;
     theNode.Motion.MoveWentDone();  // Clear the move done flag
-    // theNode.AccUnit(INode::RPM_PER_SEC);                //Set the units for Acceleration to RPM/SEC
-    // theNode.VelUnit(INode::RPM);                        //Set the units for Velocity to RPM
-    // theNode.Motion.AccLimit = ACC_LIM_RPM_PER_SEC;      //Set Acceleration Limit (RPM/Sec)
-    // theNode.Motion.VelLimit = VEL_LIM_RPM;              //Set Velocity Limit (RPM)
+    theNode.AccUnit(INode::RPM_PER_SEC);                //Set the units for Acceleration to RPM/SEC
+    theNode.VelUnit(INode::RPM);                        //Set the units for Velocity to RPM
+    theNode.Motion.AccLimit = 1000;      //Set Acceleration Limit (RPM/Sec)
+    if (rpmLimit > 0) {
+        theNode.Motion.VelLimit = rpmLimit;              //Set Velocity Limit (RPM)
+    } else {
+        theNode.Motion.VelLimit = 1000;              //Set Velocity Limit (RPM)
+
+    }
 
     int steps = absoluteAngle / DEGREE_PER_STEP;
 
     theNode.Motion.MovePosnStart(steps, true);
     qDebug() << theNode.Motion.MovePosnDurationMsec(steps, true) << "estimated time.";
-    // double timeout = myMgr->TimeStampMsec() + theNode.Motion.MovePosnDurationMsec(steps, true) + 100;         //define a timeout in case the node is unable to enable
+    double timeout = myMgr->TimeStampMsec() + theNode.Motion.MovePosnDurationMsec(steps, true) + 100;         //define a timeout in case the node is unable to enable
+    double startTime = myMgr->TimeStampMsec();
+    while (!theNode.Motion.MoveIsDone()) {
 
-    // while (!theNode.Motion.MoveIsDone()) {
-    //     if (myMgr->TimeStampMsec() > timeout) {
-    //         qDebug() << "Error: Timed out waiting for move to complete";
-    //         return;
-    //     }
-    // }
+        // if (myMgr->TimeStampMsec() > timeout) {
+        //     qDebug() << "Error: Timed out waiting for move to complete";
+        //     return 0;
+        // }
+    }
+    double endTime = myMgr->TimeStampMsec();
     qDebug() << "Move completed";
+    return endTime - startTime;
 }

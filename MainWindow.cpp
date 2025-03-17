@@ -65,7 +65,7 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
     connect(ui.newCal3DStartImageCaptureButton, &QPushButton::clicked, this, &MainWindow::newCameraCalibrationStartImageCapture);
     connect(ui.newCal3DSaveImagePairButton, &QPushButton::clicked, this, &MainWindow::newCameraCalibrationSaveImagePair);
     connect(ui.newCal3DStopImageCaptureButton, &QPushButton::clicked, this, &MainWindow::newCal3DStopImageCapture);
-    connect(ui.cancelNewCal3DButton, &QPushButton::clicked, this, &MainWindow::cancelNewCal3D);
+    // connect(ui.cancelNewCal3DButton, &QPushButton::clicked, this, &MainWindow::cancelNewCal3D);
     connect(ui.calibrateNewCal3DButton, &QPushButton::clicked, this, &MainWindow::calibrateCameras);
     connect(ui.startCameraCaptureThreadButton, &QPushButton::clicked, this, &MainWindow::startCapture);
     connect(ui.stopCameraCaptureThreadButton, &QPushButton::clicked, this, &MainWindow::stopCapture);
@@ -82,6 +82,8 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
     connect(ui.initAzPushButton, &QPushButton::clicked, this, &MainWindow::initializeAzimuth);
     connect(ui.enableAzButton, &QPushButton::clicked, this, &MainWindow::enableAzimuth);
     connect(ui.disableAzButton, &QPushButton::clicked, this, &MainWindow::disableAzimuth);
+
+    connect(ui.testMoveTimeButton, &QPushButton::clicked, this, &MainWindow::altitudeTimeTest);
 
 
 
@@ -219,7 +221,7 @@ void MainWindow::resetNewCameraCalibration() {
         ui.newCal3DSaveImagePairButton->setEnabled(false);
         ui.calibrateNewCal3DButton->setEnabled(false);
         ui.newCal3DSaveToFileButton->setEnabled(false);
-        ui.cancelNewCal3DButton->setEnabled(false);
+        // ui.cancelNewCal3DButton->setEnabled(false);
         ui.selectCal3DFromSavedFile->setEnabled(true);
         ui.chessRowsSpinBox->setEnabled(false);
         ui.chessColumnsSpinBox->setEnabled(false);
@@ -262,7 +264,7 @@ void MainWindow::newCameraCalibrationStartImageCapture() {
     ui.newCal3DStartImageCaptureButton->setEnabled(false);
     ui.newCal3DStopImageCaptureButton->setEnabled(true);
     ui.newCal3DSaveImagePairButton->setEnabled(true);
-    ui.cancelNewCal3DButton->setEnabled(true);
+    // ui.cancelNewCal3DButton->setEnabled(true);
     ui.selectCal3DFromSavedFile->setEnabled(false);
     ui.chessRowsSpinBox->setEnabled(true);
     ui.chessColumnsSpinBox->setEnabled(true);
@@ -689,12 +691,17 @@ std::vector<cv::Mat> MainWindow::getLEDCoords() {
 
     // Apply thresholding
     cv::Mat thresholdedImage1 = ApplyThreshold(frame1, thresholdValue, 255, cv::THRESH_BINARY);
-    cv::imwrite("test.jpg", thresholdedImage1);
+    cv::imwrite("threshold1.jpg", thresholdedImage1);
     cv::Mat thresholdedImage2 = ApplyThreshold(frame2, thresholdValue, 255, cv::THRESH_BINARY);
+    cv::imwrite("threshold2.jpg", thresholdedImage1);
 
     // Find the 3 largest contours
     cv::Mat largestContoursImage1 = FindLargestContours(thresholdedImage1, 3);
+    cv::imwrite("contour1.jpg", largestContoursImage1);
+    // qDebug() << "Camera 1 - found" <<
     cv::Mat largestContoursImage2 = FindLargestContours(thresholdedImage2, 3);
+    cv::imwrite("contour2.jpg", largestContoursImage2);
+
 
     // Find centroids of the largest contours
     std::vector<cv::Point> centroids1 = FindCentroids(largestContoursImage1);
@@ -746,6 +753,7 @@ void MainWindow::sphericalCalibration() {
     }
 
     std::vector<cv::Mat> LEDCoords = MainWindow::getLEDCoords();
+    if (LEDCoords.empty()) return;
     cv::Mat topCoords = LEDCoords[0].reshape(1,3);
     std::cout << "Top: " << topCoords << std::endl;
     cv::Mat leftCoords = LEDCoords[1].reshape(1,3);
@@ -754,21 +762,30 @@ void MainWindow::sphericalCalibration() {
     std::cout << "Right: " << rightCoords << std::endl;
 
     std::cout << "Difference between right and left coordinates: " << (rightCoords - leftCoords) << std::endl;
-    std::cout << "Length in inches: " << cv::norm(rightCoords - leftCoords)/25.4 << std::endl;
-
     std::cout << "Difference between top and right coordinates: " << (topCoords - rightCoords) << std::endl;
-    std::cout << "Length in inches: " << cv::norm(topCoords - rightCoords)/25.4 << std::endl;
+
+    std::cout << "x vector in inches: " << cv::norm(rightCoords - leftCoords)/25.4 << std::endl;
+
+    std::cout << "y vector in inches: " << cv::norm(topCoords - rightCoords)/25.4 << std::endl;
 
     cv::Mat xDir = (rightCoords - leftCoords) / cv::norm(rightCoords - leftCoords);
     cv::Mat yDir = (topCoords - rightCoords) / cv::norm(topCoords - rightCoords);
     cv::Mat zDir = xDir.cross(yDir);
 
-    sphericalOrigin = topCoords + displacementFromLEDPlaneToOrigin;
+    try
+    {
+        sphericalOrigin = topCoords + displacementFromLEDPlaneToOrigin;
 
-    rotationMatrix = (cv::Mat_<double>(3,3) <<
-                          xDir.at<double>(0,0), xDir.at<double>(1,0), xDir.at<double>(2,0),
-                      yDir.at<double>(0,0), yDir.at<double>(1,0), yDir.at<double>(2,0),
-                      zDir.at<double>(0,0), zDir.at<double>(1,0), zDir.at<double>(2,0)
+    }
+    catch (...)
+    {
+        qDebug() << "Error in spherical origin determination";
+    }
+
+    rotationMatrix = (cv::Mat_<float>(3,3) <<
+                          xDir.at<float>(0,0), xDir.at<float>(1,0), xDir.at<float>(2,0),
+                      yDir.at<float>(0,0), yDir.at<float>(1,0), yDir.at<float>(2,0),
+                      zDir.at<float>(0,0), zDir.at<float>(1,0), zDir.at<float>(2,0)
                       );
 
     qDebug() << "Successfully completed spherical calibration";
@@ -797,11 +814,21 @@ void MainWindow::sphericalTest() {
 
     // Find centroids of the largest contour
     std::vector<cv::Point> centroids1 = FindCentroids(largestContoursImage1);
+    if (centroids1.size() != 1) {
+        qDebug() << "No centroid found in camera 1";
+        return;
+    }
     std::vector<cv::Point> centroids2 = FindCentroids(largestContoursImage2);
+    if (centroids2.size() != 1) {
+        qDebug() << "No centroid found in camera 2";
+        return;
+    }
 
     // Find centroid in camera coordinates
     cv::Point2f point1(centroids1[0].x, centroids1[0].y);
+    qDebug() << "Centroid 1: " << point1.x << ", " << point1.y;
     cv::Point2f point2(centroids2[0].x, centroids2[0].y);
+    qDebug() << "Centroid 2: " << point2.x << ", " << point2.y;
     cv::Mat targetCoordsCameraCoordinates = triangulatePoint(P1, P2, point1, point2);
 
 
@@ -818,12 +845,40 @@ void MainWindow::sphericalTest() {
     double theta = std::acos(z / normXYZ);
     double optimalAltitude = M_PI / 2.0 - theta;
 
-    qDebug() << "Global coordinates: " << x << ", " << y << ", " << z << "\n";
-    qDebug() << "Calculated azimuth" << optimalAzimuth << "\n";
-    qDebug() << "Calculated altitude" << optimalAltitude << "\n";
+    qDebug() << "Target location in global coordinates: " << x << ", " << y << ", " << z << "\n";
+    qDebug() << "Calculated azimuth: " << optimalAzimuth << "\n";
+    qDebug() << "Calculated altitude: " << optimalAltitude << "\n";
     // TODO: move the motors to their desired angles
+
+    // put the calculated angles into the spinboxes
+    ui.aziValueSpinBox->setValue(optimalAzimuth);
+    ui.altValueSpinBox->setValue(optimalAltitude);
+    // send the angles to the motors
+    sendMotorPositions();
+
 }
 
+#include <fstream> // Add this include for file operations
+
+void MainWindow::altitudeTimeTest() {
+    moveAltitudeMotor(altitudePointer, 22.5, 0);
+    std::ofstream outFile("altitude_time_test_data_centered_jerk16.csv");
+    outFile << "Angle,RpmLimit,TimeTaken\n"; // Write the header
+    // std::vector<float> angles = {0.5, 2, 5, 10, 15, 20, 25, 30, 35, 40, 45};
+    // for (float angle : angles) {
+    for (float angle = 0; angle <= 46; angle += 5) {
+        for (int rpmLimit = 10; rpmLimit <= 120; rpmLimit += 10) {
+            double timeTaken = moveAltitudeMotor(altitudePointer, angle, rpmLimit);
+            QThread::msleep(250);
+            moveAltitudeMotor(altitudePointer, (float)22.5, 0);
+            QThread::msleep(250);
+            outFile << angle << "," << rpmLimit << "," << timeTaken << "\n"; // Write the data
+            qDebug() << "Angle:" << angle << ", RpmLimit:" << rpmLimit << ", TimeTaken:" << timeTaken;
+        }
+    }
+
+    outFile.close();
+}
 
 
 // ************** IGNORE FUNCTIONS BELOW *******************************
@@ -941,12 +996,13 @@ void MainWindow::initializeAzimuth() {
 
 void MainWindow::altitudeTest() {
     float absoluteAngle = ui.altValueSpinBox->value();
-    moveAltitudeMotor(altitudePointer, absoluteAngle);
+    int rpmLimit = ui.rpmLimitSpinBox->value();
+    moveAltitudeMotor(altitudePointer, absoluteAngle, rpmLimit);
 }
 
 void MainWindow::azimuthTest() {
     float absoluteAngle = ui.aziValueSpinBox->value();
-    int steps = absoluteAngle / 0.45;
+    int steps = static_cast<int>((absoluteAngle)/ 0.45) - azimuthPosition;
     sendSerialMessage(QString::number(steps));
     azimuthPosition += steps;
 }
