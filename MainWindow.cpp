@@ -456,8 +456,8 @@ void MainWindow::saveProcessedFrames() {
         frame2 = captureThread->getFrame2().clone();
     } else {
         // If processing is enabled, try to get the latest processed frames
-        frame1 = output1.clone();
-        frame2 = output2.clone();
+        frame1 = processedFrame1.clone();
+        frame2 = processedFrame2.clone();
         
         // Fallback to raw frames if processed frames aren't available
         if (frame1.empty() || frame2.empty()) {
@@ -601,13 +601,16 @@ void MainWindow::receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv
         emit processedFramesReady(thresholdedImage1, thresholdedImage2);
     } else if (processingType == "BD") {
         setBDValues();
+        
         QtConcurrent::run([this, originalFrame1, originalFrame2]() {
             totalTimer->timeVoid([&]() {
+                cv::Point2f centroid1, centroid2;
                 // Run processing in parallel
                 QFuture<void> futureOutput1 = QtConcurrent::run([&]() {
                     if (hsvEnabled) hsvTimer->timeVoid([&]() { 
-                        ApplyHSVThreshold(originalFrame1, tmp1, output1, hMin, hMax, sMin, sMax, vMin, vMax); 
+                        TestApplyBGRThreshold(originalFrame1, tmp1, output1, hMin, hMax, sMin, sMax, vMin, vMax); 
                     });
+
                     if (hsvEnabled && motionEnabled) {
                         motionTimer->timeVoid([&]() {
                             ApplyMotionThresholdConsecutively(originalFrame1, tmpGray1, output1, backgroundImage1, thresholdValue);
@@ -617,13 +620,20 @@ void MainWindow::receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv
                             ApplyMotionThreshold(originalFrame1, tmpGray1, output1, backgroundImage1, thresholdValue);
                         });
                     }
+
                     if ((hsvEnabled || motionEnabled) && morphEnabled) {
                         ApplyMorphClosing(output1, kernel);
+                    }
+
+                    if (centroidEnabled) {
+                        motionTimer->timeVoid([&]() {
+                            centroid1 = ComputeCentroid(output1);
+                        });
                     }
                 });
 
                 QFuture<void> futureOutput2 = QtConcurrent::run([&]() {
-                    if (hsvEnabled) ApplyHSVThreshold(originalFrame2, tmp2, output2, hMin, hMax, sMin, sMax, vMin, vMax);
+                    if (hsvEnabled) TestApplyBGRThreshold(originalFrame2, tmp2, output2, hMin, hMax, sMin, sMax, vMin, vMax);
 
                     if (hsvEnabled && motionEnabled) {
                         ApplyMotionThresholdConsecutively(originalFrame2, tmpGray2, output2, backgroundImage2, thresholdValue);
@@ -634,14 +644,32 @@ void MainWindow::receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv
                     if ((hsvEnabled || motionEnabled) && morphEnabled) {
                         ApplyMorphClosing(output2, kernel);
                     }
+
+                    if (centroidEnabled) centroid2 = ComputeCentroid(output2);
                 });
             
 
                 futureOutput1.waitForFinished();
                 futureOutput2.waitForFinished();
+                
+                
+                // if (centroidEnabled) {
+                //     motionTimer->timeVoid([&]() {
+                //         centroid1 = ComputeCentroid(output1);
+                //         centroid2 = ComputeCentroid(output2);
+                    
 
+                //         if (drawEnabled) {
+                //             DrawCentroidBinary(output1, centroid1);
+                //             DrawCentroidBinary(output2, centroid2);
+                //         }
+                //     });
+                // }
+                
                 // Emit the processed frames
-                emit processedFramesReady(output1, output2);
+                processedFrame1 = output1.clone();
+                processedFrame2 = output2.clone();
+                emit processedFramesReady(processedFrame1, processedFrame2);
             });
         });
     } else {
@@ -1108,6 +1136,8 @@ void MainWindow::setBDValues() {
     motionEnabled = ui.processingMotionEnabled->isChecked();
     hsvEnabled = ui.processingHSVEnabled->isChecked();
     morphEnabled = ui.processingMorphEnabled->isChecked();
+    centroidEnabled = ui.processingCentroidEnabled->isChecked();
+    drawEnabled = ui.processingDrawCentroidEnabled->isChecked();
     thresholdValue = ui.processingBDThresholdSpinBox->value();
     hMax = ui.processingHMax->value();
     hMin = ui.processingHMin->value();
@@ -1118,7 +1148,7 @@ void MainWindow::setBDValues() {
 
     kernelSize = ui.processingMorphKernelSize->value();
     if (prevKernelSize != kernelSize) {
-        kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(kernelSize, kernelSize));
+        cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(kernelSize, kernelSize));
         prevKernelSize = kernelSize;
     } 
 

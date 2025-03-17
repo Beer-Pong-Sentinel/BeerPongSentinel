@@ -78,13 +78,14 @@ private:
 
     // for ball detection
     int thresholdValue, hMax, hMin, sMax, sMin, vMax, vMin;
-    bool hsvEnabled = true, motionEnabled = true, morphEnabled = true;
-    int kernelSize = 5, prevKernelSize = kernelSize;
+    bool hsvEnabled = true, motionEnabled = true, morphEnabled = true, centroidEnabled = true, drawEnabled = false;
+    int kernelSize = 5, prevKernelSize = -1;
     cv::Mat backgroundImage1, backgroundImage2;
     cv::Mat tmp1, tmp2;
     cv::Mat tmpGray1, tmpGray2;
     cv::Mat output1, output2;
-    cv::Mat kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(kernelSize, kernelSize));
+    cv::Mat kernel;
+    cv::Mat processedFrame1, processedFrame2;
 
     ProcessTimer* hsvTimer = new ProcessTimer("HSV Threshold", 200, 5000, this);
     ProcessTimer* motionTimer = new ProcessTimer("Motion Threshold", 200, 5000, this);

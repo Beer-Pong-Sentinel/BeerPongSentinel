@@ -29,10 +29,18 @@ void ApplyHSVThreshold(const cv::Mat& input, cv::Mat& tmp, cv::Mat& output, doub
 
 cv::Mat TestApplyHSVThreshold(const cv::Mat& input, double minH, double maxH, double minS, double maxS, double minV, double maxV);
 
+void ApplyBGRThreshold(const cv::Mat& input, cv::Mat& output, double minR, double maxR, double minG, double maxG, double minB, double maxB);
+
+void TestApplyBGRThreshold(const cv::Mat& input, cv::Mat& tmp, cv::Mat& output, double minH, double maxH, double minS, double maxS, double minV, double maxV);
+
 void ApplyMotionThreshold(const cv::Mat& input, cv::Mat& tmp, cv::Mat& output, const cv::Mat& background, double threshold);
 
 void ApplyMotionThresholdConsecutively(const cv::Mat& input, cv::Mat& tmp, cv::Mat& output, const cv::Mat& background, double threshold);
 
 void ApplyMorphClosing(cv::Mat& input, cv::Mat& kernel);
+
+cv::Point2f ComputeCentroid(const cv::Mat& input);
+
+void DrawCentroidBinary(cv::Mat& image, const cv::Point2f& centroid, int radius = 5, cv::Scalar color = cv::Scalar(255), int thickness = -1);
 
 #endif // IMAGEPROCESSING_H

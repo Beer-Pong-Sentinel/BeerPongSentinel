@@ -146,6 +146,15 @@ cv::Mat TestApplyHSVThreshold(const cv::Mat& input, double minH, double maxH, do
     return output;
 }
 
+void ApplyBGRThreshold(const cv::Mat& input, cv::Mat& output, double minB, double maxB, double minG, double maxG, double minR, double maxR) {
+    // Use inRange to apply the thresholds directly in the RGB color space
+    cv::inRange(input, cv::Scalar(minB, minG, minR), cv::Scalar(maxB, maxG, maxR), output);
+}
+
+void TestApplyBGRThreshold(const cv::Mat& input, cv::Mat& tmp, cv::Mat& output, double minH, double maxH, double minS, double maxS, double minV, double maxV) {
+    cv::inRange(input, cv::Scalar(minH, minS, minV), cv::Scalar(maxH, maxS, maxV), output);
+}
+
 void ApplyMotionThreshold(const cv::Mat& input, cv::Mat& tmp, cv::Mat& output, const cv::Mat& background, double threshold) {
     if (background.empty()) return;
     cv::cvtColor(input, tmp, cv::COLOR_BGR2GRAY);
@@ -162,5 +171,22 @@ void ApplyMotionThresholdConsecutively(const cv::Mat& input, cv::Mat& tmp, cv::M
 }
 
 void ApplyMorphClosing(cv::Mat& input, cv::Mat& kernel) {
-    cv::morphologyEx(input, input, cv::MORPH_OPEN, kernel); 
+    cv::erode(input, input, kernel);
+    cv::dilate(input, input, kernel);
+}
+
+cv::Point2f ComputeCentroid(const cv::Mat& input) {
+    cv::Moments m = cv::moments(input, true);
+
+    if (m.m00 == 0) {
+        return cv::Point2f(-1, -1);  // No foreground pixels found
+    }
+
+    return cv::Point2f(m.m10 / m.m00, m.m01 / m.m00);
+}
+
+void DrawCentroidBinary(cv::Mat& image, const cv::Point2f& centroid, int radius, cv::Scalar color, int thickness) {
+    if (centroid.x >= 0 && centroid.y >= 0) {
+        cv::circle(image, centroid, radius, color, thickness);
+    }
 }
