@@ -10,6 +10,8 @@
 #include <QSerialPort>
 #include <QMutex>
 #include <time.h>
+#include "pubSysCls.h"  
+
 
     class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -51,6 +53,7 @@ private:
     cv::Mat P2;                      // Projection matrix for camera 2
     double projectionError = 0.0;
     QSerialPort *serialPort;
+    void sendSerialMessage(QString baseMessage);
     void calibrateMotorCamera();
     std::vector<cv::Mat> getLEDCoords();
     std::vector<cv::Point> reorderCentroids(const std::vector<cv::Point>& centroids);
@@ -70,6 +73,25 @@ private:
     cv::Mat displacementFromLEDPlaneToOrigin = (cv::Mat_<float>(3, 1) << 0, 0, 10.0); // CHANGE THIS
     cv::Mat rotationMatrix;
     cv::Mat sphericalOrigin;
+
+    // triggering
+    void fire();
+
+    // for altitude motor
+    sFnd::INode* altitudePointer;
+    void initializeAltitude();
+    void altitudeTest();
+    void altitudeTimeTest();
+
+    // for azimuth motor
+    void initializeAzimuth();
+    void azimuthTest();
+    void enableAzimuth();
+    void disableAzimuth();
+    int azimuthPosition = 0;
+
+
+    void sendMotorPositions();
 
 
 };
