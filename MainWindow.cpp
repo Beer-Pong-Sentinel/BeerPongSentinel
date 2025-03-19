@@ -41,7 +41,7 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
 
     // Configure the serial port (modify these settings as necessary for your device)
 
-    serialPort->setPortName("COM7");
+    serialPort->setPortName("COM21");
 
     if (!serialPort->open(QIODevice::ReadWrite)) {
         qDebug() << "Error: Failed to open serial port" << serialPort->portName();
@@ -774,7 +774,7 @@ void MainWindow::sphericalCalibration() {
 
     try
     {
-        sphericalOrigin = topCoords + displacementFromLEDPlaneToOrigin;
+        sphericalOrigin = rightCoords + displacementRightLEDToOrigin;
 
     }
     catch (...)
@@ -782,10 +782,10 @@ void MainWindow::sphericalCalibration() {
         qDebug() << "Error in spherical origin determination";
     }
 
-    rotationMatrix = (cv::Mat_<float>(3,3) <<
-                          xDir.at<float>(0,0), xDir.at<float>(1,0), xDir.at<float>(2,0),
-                      yDir.at<float>(0,0), yDir.at<float>(1,0), yDir.at<float>(2,0),
-                      zDir.at<float>(0,0), zDir.at<float>(1,0), zDir.at<float>(2,0)
+    rotationMatrix = (cv::Mat_<double>(3,3) <<
+                          xDir.at<double>(0,0), xDir.at<double>(1,0), xDir.at<double>(2,0),
+                      yDir.at<double>(0,0), yDir.at<double>(1,0), yDir.at<double>(2,0),
+                      zDir.at<double>(0,0), zDir.at<double>(1,0), zDir.at<double>(2,0)
                       );
 
     qDebug() << "Successfully completed spherical calibration";
@@ -829,7 +829,15 @@ void MainWindow::sphericalTest() {
     qDebug() << "Centroid 1: " << point1.x << ", " << point1.y;
     cv::Point2f point2(centroids2[0].x, centroids2[0].y);
     qDebug() << "Centroid 2: " << point2.x << ", " << point2.y;
-    cv::Mat targetCoordsCameraCoordinates = triangulatePoint(P1, P2, point1, point2);
+    // cv::Mat targetCoordsCameraCoordinates = triangulatePoint(P1, P2, point1, point2);
+    cv::Mat pts1 = (cv::Mat_<double>(2,1) << static_cast<double>(centroids1[0].x), static_cast<double>(centroids1[0].y));
+    cv::Mat pts2 = (cv::Mat_<double>(2,1) << static_cast<double>(centroids2[0].x), static_cast<double>(centroids2[0].y));
+
+    cv::Mat points4D;
+    cv::triangulatePoints(P1, P2, pts1, pts2, points4D);
+
+    // Convert from homogeneous coordinates (4×1) to Euclidean (3×1)
+    cv::Mat targetCoordsCameraCoordinates = points4D.rowRange(0,3) / points4D.at<double>(3,0);
 
 
     cv::Mat targetCoordsSpherical = rotationMatrix * (targetCoordsCameraCoordinates - sphericalOrigin);
@@ -839,11 +847,11 @@ void MainWindow::sphericalTest() {
 
     double normXY = std::sqrt(x * x + y * y);
     double phi = std::copysign(1.0, y) * std::acos(x / normXY);
-    double optimalAzimuth = phi - M_PI / 2.0;
+    double optimalAzimuth = (phi - M_PI / 2.0) * 180.0 / M_PI;
 
     double normXYZ = std::sqrt(x * x + y * y + z * z);
     double theta = std::acos(z / normXYZ);
-    double optimalAltitude = M_PI / 2.0 - theta;
+    double optimalAltitude = (M_PI / 2.0 - theta) * 180.0 / M_PI;
 
     qDebug() << "Target location in global coordinates: " << x << ", " << y << ", " << z << "\n";
     qDebug() << "Calculated azimuth: " << optimalAzimuth << "\n";

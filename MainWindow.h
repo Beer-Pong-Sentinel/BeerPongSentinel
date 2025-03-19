@@ -70,7 +70,13 @@ private:
     std::atomic<bool> stopMotorCameraCalibrationFlag=false;
 
     // for spherical calibration
-    cv::Mat displacementFromLEDPlaneToOrigin = (cv::Mat_<float>(3, 1) << 0, 0, 10.0); // CHANGE THIS
+
+    cv::Mat displacementTopRightMountHoleToOrigin = (cv::Mat_<double>(3, 1) << -3.5, -3.5, 14.625) * 25.4;
+    cv::Mat displacementTopRightBoardHoleToTopRightMountHole = (cv::Mat_<double>(3, 1) << -6, -12, 0) * 25.4;
+    cv::Mat displacementRightLEDToTopRightBoardHole = (cv::Mat_<double>(3, 1) << 14, -842, 22); //ROUGH
+    cv::Mat displacementRightLEDToOrigin = displacementRightLEDToTopRightBoardHole+displacementTopRightBoardHoleToTopRightMountHole+displacementTopRightMountHoleToOrigin;
+
+
     cv::Mat rotationMatrix;
     cv::Mat sphericalOrigin;
 

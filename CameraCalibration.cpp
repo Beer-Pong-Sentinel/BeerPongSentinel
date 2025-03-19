@@ -182,14 +182,14 @@ void triangulate(const std::vector<cv::Point2f>& points1, const std::vector<cv::
     }
 
     // Convert points to cv::Mat (2xN matrix)
-    cv::Mat points1Mat(2, points1.size(), CV_32F);
-    cv::Mat points2Mat(2, points2.size(), CV_32F);
+    cv::Mat points1Mat(2, points1.size(), CV_64F);
+    cv::Mat points2Mat(2, points2.size(), CV_64F);
 
     for (size_t i = 0; i < points1.size(); i++) {
-        points1Mat.at<float>(0, i) = points1[i].x;
-        points1Mat.at<float>(1, i) = points1[i].y;
-        points2Mat.at<float>(0, i) = points2[i].x;
-        points2Mat.at<float>(1, i) = points2[i].y;
+        points1Mat.at<double>(0, i) = points1[i].x;
+        points1Mat.at<double>(1, i) = points1[i].y;
+        points2Mat.at<double>(0, i) = points2[i].x;
+        points2Mat.at<double>(1, i) = points2[i].y;
     }
 
     // Triangulate points
@@ -204,10 +204,10 @@ void triangulate(const std::vector<cv::Point2f>& points1, const std::vector<cv::
     points3D.clear();
     for (int i = 0; i < points4D.cols; i++) {
         cv::Mat x = points4D.col(i);
-        x /= x.at<float>(3); // Normalize by the last coordinate
+        x /= x.at<double>(3); // Normalize by the last coordinate
 
         // Create a 1x3 matrix for the 3D point
-        cv::Mat point3D = (cv::Mat_<float>(1, 3) << x.at<float>(0), x.at<float>(1), x.at<float>(2));
+        cv::Mat point3D = (cv::Mat_<double>(1, 3) << x.at<double>(0), x.at<double>(1), x.at<double>(2));
         points3D.push_back(point3D);
     }
 }
