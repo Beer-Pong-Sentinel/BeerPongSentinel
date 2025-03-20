@@ -24,7 +24,7 @@ public:
 
 public slots:
 
-    void updateFrame(const cv::Mat &frame1, const cv::Mat &frame2);  // Slot to receive and display frames
+    void updateFrame(const cv::Mat &frame1, const cv::Mat &frame2, QImage::Format format);  // Slot to receive and display frames
 
 protected:
     void initializeGL() override;
@@ -42,8 +42,11 @@ private:
     int frameCounter = 0;
     int displayInterval = 5;
     int processingType=0; //0 is none, 1 is thresholding, 2 is BGSub
-       
 
+    QElapsedTimer m_frameTimer;
+    qint64 m_lastUpdateTime;
+    qint64 m_updateInterval;
+    bool m_pendingUpdate;
 
     CameraCaptureThread *captureThread;  // Thread for capturing frames
 };

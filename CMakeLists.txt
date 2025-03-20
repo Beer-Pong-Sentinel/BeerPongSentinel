@@ -61,7 +61,20 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
     qt_add_executable(BeerPongSentinel
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
+        config.json
+        CameraCaptureThread.cpp CameraSetup.cpp CameraStreamWidget.cpp ImageProcessing.cpp
+        CameraCaptureThread.h CameraSetup.h CameraStreamWidget.h ImageProcessing.h
+        json.hpp
+        CameraCalibration.cpp
+        CameraCalibration.h
+        ProcessTimer.h ProcessTimer.cpp
+
     )
+# Define target properties for Android with Qt 6 as:
+#    set_property(TARGET BeerPongSentinel APPEND PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR
+#                 ${CMAKE_CURRENT_SOURCE_DIR}/android)
+# For more information, see https://doc.qt.io/qt-6/qt-add-executable.html#target-creation
+
     qt_create_translation(QM_FILES ${CMAKE_SOURCE_DIR} ${TS_FILES})
 else()
     if(ANDROID)
@@ -86,7 +99,7 @@ link_directories("${OPEN_CV_PATH}/x64/vc16/lib")
 target_link_libraries(BeerPongSentinel PRIVATE
     Qt${QT_VERSION_MAJOR}::Widgets
     "${SPINNAKER_SDK_PATH}/lib64/vs2015/Spinnaker_v140.lib"
-    "${OPEN_CV_PATH}/x64/vc16/lib/opencv_world4110d.lib"
+    "${OPEN_CV_PATH}/x64/vc16/lib/opencv_world4100d.lib"
     "${TEKNIC_SDK_PATH}/sFoundation Source/sFoundation/win/Debug/x64/sFoundation20.lib"
     "${TEKNIC_SDK_PATH}/lib/win/Release/x64/sFoundation20.lib"
     Qt6::OpenGL

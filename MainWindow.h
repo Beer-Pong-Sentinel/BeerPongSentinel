@@ -10,6 +10,7 @@
 #include <QSerialPort>
 #include <QMutex>
 #include <time.h>
+#include "ProcessTimer.h"
 #include "pubSysCls.h"  
 
 
@@ -34,6 +35,7 @@ private slots:
     void stopCapture();
     void startCapture();
     void setProcesseing();
+    void setBackgroundImage();
     void receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv::Mat &originalFrame2);
     void indicateCameraCalibrationComplete();
     void setupCaptureThreadConnections();
@@ -49,6 +51,7 @@ private:
     int numberOfSavedImagePairs = 0;
     CameraStreamWidget *cameraStreamWidget;
     CameraCaptureThread *captureThread = nullptr;
+    QImage::Format format = QImage::Format_BGR888;
     cv::Mat P1;                      // Projection matrix for camera 1
     cv::Mat P2;                      // Projection matrix for camera 2
     double projectionError = 0.0;
@@ -62,10 +65,12 @@ private:
     void sphericalTest();
     void queryMotorPosition(quint16 aziValue, quint16 altValue, QSerialPort &localSerialPort);
     void queryMotorPositionHardCode();
+    void setBDValues();
+    void saveProcessedFrames();
 
     //possible variants: None, thresh and bgsub
     QString  processingType="None";
-    cv::Ptr<cv::BackgroundSubtractor> backSub = cv::createBackgroundSubtractorMOG2();
+    cv::Ptr<cv::BackgroundSubtractor> backSub =  cv::createBackgroundSubtractorMOG2(100, 16, false); 
     bool performingMotorCameraCalibration = false;
     std::atomic<bool> stopMotorCameraCalibrationFlag=false;
 
@@ -99,7 +104,20 @@ private:
 
     void sendMotorPositions();
 
+    // for ball detection
+    int thresholdValue, hMax, hMin, sMax, sMin, vMax, vMin;
+    bool hsvEnabled = true, motionEnabled = true, morphEnabled = true, centroidEnabled = true, drawEnabled = false;
+    int kernelSize = 5, prevKernelSize = -1;
+    cv::Mat backgroundImage1, backgroundImage2;
+    cv::Mat tmp1, tmp2;
+    cv::Mat tmpGray1, tmpGray2;
+    cv::Mat output1, output2;
+    cv::Mat kernel;
+    cv::Mat processedFrame1, processedFrame2;
 
+    ProcessTimer* hsvTimer = new ProcessTimer("HSV Threshold", 200, 5000, this);
+    ProcessTimer* motionTimer = new ProcessTimer("Motion Threshold", 200, 5000, this);
+    ProcessTimer* totalTimer = new ProcessTimer("Total Processing", 200, 5000, this);
 };
 
 #endif // MAINWINDOW_H

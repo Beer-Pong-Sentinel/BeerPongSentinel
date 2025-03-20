@@ -56,34 +56,30 @@ int DrawCentroid(cv::Mat& image, cv::Point& centroid)
     return 0;
 }
 
-cv::Mat SubtractBackground(const cv::Mat& image, cv::Ptr<cv::BackgroundSubtractor> backSub)
+cv::Mat SubtractBackground(const cv::Mat& image, cv::Ptr<cv::BackgroundSubtractor> backSub, cv::Mat& fgMask, cv::Mat& tmpGray, cv::Mat& kernel)
 {
-    int erode_kernel = 3;
+    cv::cvtColor(image, tmpGray, cv::COLOR_BGR2GRAY);
 
-    qDebug()<<"about to subtract bg";
+    // qDebug()<<"about to subtract bg";
 
     // Create the foreground mask
-    cv::Mat fgMask;
     backSub->apply(image, fgMask);
-    qDebug()<<"subtracted bg";
+    // qDebug()<<"subtracted bg";
 
     // Remove shadows (threshold to binary, where values > 254 are set to 255)
     cv::threshold(fgMask, fgMask, 254, 255, cv::THRESH_BINARY);
 
     // Create kernel for erosion and dilation (morphological operations)
-    cv::Mat kernel = cv::Mat::ones(erode_kernel, erode_kernel, CV_8U);
 
     // Apply erosion
-    cv::Mat erodedMask;
-    cv::erode(fgMask, erodedMask, kernel, cv::Point(-1, -1), 1);
+    cv::erode(fgMask, fgMask, kernel, cv::Point(-1, -1), 1);
 
     // Apply dilation
-    cv::Mat dilatedMask;
-    cv::dilate(erodedMask, dilatedMask, kernel, cv::Point(-1, -1), 1);
+    cv::dilate(fgMask, fgMask, kernel, cv::Point(-1, -1), 1);
 
     // Return the new mask
 
-    return dilatedMask;
+    return fgMask;
 }
 
 
@@ -131,7 +127,68 @@ cv::Mat FindLargestContours(const cv::Mat& thresholdedImage, int numContours) {
 
 cv::Mat ApplyThreshold(const cv::Mat& inputImage, double thresholdValue, double maxValue, int thresholdType)
 {
+    cv::Mat grayscale;
+    cv::cvtColor(inputImage, grayscale, cv::COLOR_BGR2GRAY);
     cv::Mat thresholdedImage;
-    cv::threshold(inputImage, thresholdedImage, thresholdValue, maxValue, thresholdType);
+    cv::threshold(grayscale, thresholdedImage, thresholdValue, maxValue, thresholdType);
     return thresholdedImage;
+}
+
+void ApplyHSVThreshold(const cv::Mat& input, cv::Mat& tmp, cv::Mat& output, double minH, double maxH, double minS, double maxS, double minV, double maxV) {
+    // Convert the input image to HSV color space and store in tmp
+    cv::cvtColor(input, tmp, cv::COLOR_BGR2HSV);
+    // Use inRange to apply the thresholds efficiently
+    cv::inRange(tmp, cv::Scalar(minH, minS, minV), cv::Scalar(maxH, maxS, maxV), output);
+}
+
+cv::Mat TestApplyHSVThreshold(const cv::Mat& input, double minH, double maxH, double minS, double maxS, double minV, double maxV) {
+    cv::Mat tmp, output;
+    cv::cvtColor(input, tmp, cv::COLOR_BGR2HSV);
+    cv::inRange(tmp, cv::Scalar(minH, minS, minV), cv::Scalar(maxH, maxS, maxV), output);
+    return output;
+}
+
+void ApplyBGRThreshold(const cv::Mat& input, cv::Mat& output, double minB, double maxB, double minG, double maxG, double minR, double maxR) {
+    // Use inRange to apply the thresholds directly in the RGB color space
+    cv::inRange(input, cv::Scalar(minB, minG, minR), cv::Scalar(maxB, maxG, maxR), output);
+}
+
+void TestApplyBGRThreshold(const cv::Mat& input, cv::Mat& tmp, cv::Mat& output, double minH, double maxH, double minS, double maxS, double minV, double maxV) {
+    cv::inRange(input, cv::Scalar(minH, minS, minV), cv::Scalar(maxH, maxS, maxV), output);
+}
+
+void ApplyMotionThreshold(const cv::Mat& input, cv::Mat& tmp, cv::Mat& output, const cv::Mat& background, double threshold) {
+    if (background.empty()) return;
+    cv::cvtColor(input, tmp, cv::COLOR_BGR2GRAY);
+    cv::absdiff(tmp, background, tmp);
+    cv::threshold(tmp, output, threshold, 255, cv::THRESH_BINARY);
+}
+
+void ApplyMotionThresholdConsecutively(const cv::Mat& input, cv::Mat& tmp, cv::Mat& output, const cv::Mat& background, double threshold) {
+    if (background.empty()) return;
+    cv::cvtColor(input, tmp, cv::COLOR_BGR2GRAY);
+    cv::absdiff(tmp, background, tmp);
+    cv::threshold(tmp, tmp, threshold, 255, cv::THRESH_BINARY);
+    cv::bitwise_and(output, tmp, output);
+}
+
+void ApplyMorphClosing(cv::Mat& input, cv::Mat& kernel) {
+    cv::erode(input, input, kernel);
+    cv::dilate(input, input, kernel);
+}
+
+cv::Point2f ComputeCentroid(const cv::Mat& input) {
+    cv::Moments m = cv::moments(input, true);
+
+    if (m.m00 == 0) {
+        return cv::Point2f(-1, -1);  // No foreground pixels found
+    }
+
+    return cv::Point2f(m.m10 / m.m00, m.m01 / m.m00);
+}
+
+void DrawCentroidBinary(cv::Mat& image, const cv::Point2f& centroid, int radius, cv::Scalar color, int thickness) {
+    if (centroid.x >= 0 && centroid.y >= 0) {
+        cv::circle(image, centroid, radius, color, thickness);
+    }
 }

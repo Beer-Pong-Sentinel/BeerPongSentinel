@@ -41,7 +41,7 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
 
     // Configure the serial port (modify these settings as necessary for your device)
 
-    serialPort->setPortName("COM21");
+    serialPort->setPortName("COM9");
 
     if (!serialPort->open(QIODevice::ReadWrite)) {
         qDebug() << "Error: Failed to open serial port" << serialPort->portName();
@@ -74,6 +74,7 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
     connect(ui.setProcessingButton, &QPushButton::clicked, this, &MainWindow::setProcesseing);
     connect(ui.calibrateSphericalButton, &QPushButton::clicked, this, &MainWindow::sphericalCalibration);
     connect(ui.targetAimButton, &QPushButton::clicked, this, &MainWindow::sphericalTest);
+    connect(ui.setBackgroundImageButton, &QPushButton::clicked, this, &MainWindow::setBackgroundImage);
 
     connect(ui.fireButton, &QPushButton::clicked, this, &MainWindow::fire);
 
@@ -90,6 +91,7 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
     connect(ui.sendAltitudeButton, &QPushButton::clicked, this, &MainWindow::altitudeTest);
     connect(ui.sendAzimuthButton, &QPushButton::clicked, this, &MainWindow::azimuthTest);
     connect(this, &MainWindow::processedFramesReady, this, &MainWindow::onProcessedFramesReady);
+    connect(ui.takePictureButton, &QPushButton::clicked, this, &MainWindow::saveProcessedFrames);
 
 
 
@@ -462,10 +464,62 @@ void MainWindow::stopCapture() {
     ui.cameraStreamWidget->setDefaultBlackFrame();
 }
 
+void MainWindow::saveProcessedFrames() {
+    if (!captureThread) {
+        qDebug() << "Capture thread is not running. Cannot save frames.";
+        return;
+    }
 
+    // Get the latest processed frames
+    cv::Mat frame1, frame2;
+    
+    if (processingType == "None") {
+        frame1 = captureThread->getFrame1().clone(); // Clone to ensure thread safety
+        frame2 = captureThread->getFrame2().clone();
+    } else {
+        // If processing is enabled, try to get the latest processed frames
+        frame1 = processedFrame1.clone();
+        frame2 = processedFrame2.clone();
+        
+        // Fallback to raw frames if processed frames aren't available
+        if (frame1.empty() || frame2.empty()) {
+            frame1 = captureThread->getFrame1().clone();
+            frame2 = captureThread->getFrame2().clone();
+        }
+    }
 
+    if (frame1.empty() || frame2.empty()) {
+        qDebug() << "One or both frames are empty. Cannot save.";
+        return;
+    }
 
-
+    // Run the saving operation in a separate thread
+    QtConcurrent::run([this, frame1, frame2]() {
+        // Create a timestamp for unique filenames
+        QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd_hh-mm-ss");
+        
+        // Define directory for saving
+        QString saveDir = "../../ProcessedFrames/";
+        QDir().mkpath(saveDir);  // Create directory if it doesn't exist
+        
+        // Define file paths with timestamp
+        QString frame1Path = saveDir + "frame1_" + timestamp + ".jpeg";
+        QString frame2Path = saveDir + "frame2_" + timestamp + ".jpeg";
+        
+        // Save the frames
+        bool frame1Saved = cv::imwrite(frame1Path.toStdString(), frame1);
+        bool frame2Saved = cv::imwrite(frame2Path.toStdString(), frame2);
+        
+        if (frame1Saved && frame2Saved) {
+            qDebug() << "Saved processed frames:";
+            qDebug() << "Frame 1 saved to:" << frame1Path;
+            qDebug() << "Frame 2 saved to:" << frame2Path;
+        } else {
+            qDebug() << "Error saving frames. Frame 1 saved:" << frame1Saved << ", Frame 2 saved:" << frame2Saved;
+        }
+    });
+    
+}
 
 // THIS IS WHERE THE FRAME PROCESSING HAPPENS!!!!!!
 
@@ -474,14 +528,25 @@ void MainWindow::receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv
 
     if (processingType == "None") {
         // No processing; just update the frames
-        ui.cameraStreamWidget->updateFrame(originalFrame1, originalFrame2);
+        QtConcurrent::run([this, originalFrame1, originalFrame2]() {
+            ui.cameraStreamWidget->updateFrame(originalFrame1, originalFrame2, format);
+        });
     } else if (processingType == "BGSub") {
         // Offload the processing to another thread
         // TODO: Figure out why BG Sub is so slow.
         QtConcurrent::run([this, originalFrame1, originalFrame2]() {
+            // QElapsedTimer taskTimer;
+            // taskTimer.start();
+            
+            // qint64 startTime1 = taskTimer.elapsed();
+            // cv::Mat bgSub1 = SubtractBackground(originalFrame1, backSub, tmp1, tmpGray1, kernel);
+            // qint64 elapsed1 = taskTimer.elapsed() - startTime1;
+            
+            // qDebug() << "Background subtraction timing:";   
+            // qDebug() << "  First frame:" << elapsed1 << "ms";
 
-            cv::Mat bgSub1 = SubtractBackground(originalFrame1, backSub);
-            cv::Mat bgSub2 = SubtractBackground(originalFrame2, backSub);
+            cv::Mat bgSub1 = SubtractBackground(originalFrame1, backSub, tmp1, tmpGray1, kernel);
+            cv::Mat bgSub2 = SubtractBackground(originalFrame2, backSub, tmp2, tmpGray2, kernel);
 
             // Use Qt's signal-slot mechanism to update the GUI safely
             emit processedFramesReady(bgSub1, bgSub2);
@@ -556,14 +621,86 @@ void MainWindow::receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv
 
 
         emit processedFramesReady(thresholdedImage1, thresholdedImage2);
+    } else if (processingType == "BD") {
+        setBDValues();
+        
+        QtConcurrent::run([this, originalFrame1, originalFrame2]() {
+            totalTimer->timeVoid([&]() {
+                cv::Point2f centroid1, centroid2;
+                // Run processing in parallel
+                QFuture<void> futureOutput1 = QtConcurrent::run([&]() {
+                    if (hsvEnabled) hsvTimer->timeVoid([&]() { 
+                        TestApplyBGRThreshold(originalFrame1, tmp1, output1, hMin, hMax, sMin, sMax, vMin, vMax); 
+                    });
 
+                    if (hsvEnabled && motionEnabled) {
+                        motionTimer->timeVoid([&]() {
+                            ApplyMotionThresholdConsecutively(originalFrame1, tmpGray1, output1, backgroundImage1, thresholdValue);
+                        });
+                    } else if (motionEnabled) {
+                        motionTimer->timeVoid([&]() {
+                            ApplyMotionThreshold(originalFrame1, tmpGray1, output1, backgroundImage1, thresholdValue);
+                        });
+                    }
+
+                    if ((hsvEnabled || motionEnabled) && morphEnabled) {
+                        ApplyMorphClosing(output1, kernel);
+                    }
+
+                    if (centroidEnabled) {
+                        motionTimer->timeVoid([&]() {
+                            centroid1 = ComputeCentroid(output1);
+                        });
+                    }
+                });
+
+                QFuture<void> futureOutput2 = QtConcurrent::run([&]() {
+                    if (hsvEnabled) TestApplyBGRThreshold(originalFrame2, tmp2, output2, hMin, hMax, sMin, sMax, vMin, vMax);
+
+                    if (hsvEnabled && motionEnabled) {
+                        ApplyMotionThresholdConsecutively(originalFrame2, tmpGray2, output2, backgroundImage2, thresholdValue);
+                    } else if (motionEnabled) {
+                        ApplyMotionThreshold(originalFrame2, tmpGray2, output2, backgroundImage2, thresholdValue);
+                    }
+
+                    if ((hsvEnabled || motionEnabled) && morphEnabled) {
+                        ApplyMorphClosing(output2, kernel);
+                    }
+
+                    if (centroidEnabled) centroid2 = ComputeCentroid(output2);
+                });
+            
+
+                futureOutput1.waitForFinished();
+                futureOutput2.waitForFinished();
+                
+                
+                // if (centroidEnabled) {
+                //     motionTimer->timeVoid([&]() {
+                //         centroid1 = ComputeCentroid(output1);
+                //         centroid2 = ComputeCentroid(output2);
+                    
+
+                //         if (drawEnabled) {
+                //             DrawCentroidBinary(output1, centroid1);
+                //             DrawCentroidBinary(output2, centroid2);
+                //         }
+                //     });
+                // }
+                
+                // Emit the processed frames
+                processedFrame1 = output1.clone();
+                processedFrame2 = output2.clone();
+                emit processedFramesReady(processedFrame1, processedFrame2);
+            });
+        });
     } else {
         emit processedFramesReady(originalFrame1, originalFrame2);
     }
 }
 
 void MainWindow::onProcessedFramesReady(const cv::Mat &processedFrame1, const cv::Mat &processedFrame2) {
-    ui.cameraStreamWidget->updateFrame(processedFrame1, processedFrame2);
+    ui.cameraStreamWidget->updateFrame(processedFrame1, processedFrame2, format);
 }
 
 
@@ -618,11 +755,20 @@ void MainWindow::setProcesseing() {
         //reset background subtractor
         backSub.dynamicCast<cv::BackgroundSubtractorMOG2>()->clear();
         processingType = "BGSub";
-    }
-    else if(ui.showProcessingThresholdingRadioButton->isChecked()){
+    } else if(ui.showProcessingThresholdingRadioButton->isChecked()){
         processingType="Thresh";
+    } else if (ui.showProcessingBallDetectionRadioButton->isChecked()) {
+        processingType = "BD";
     } else {
         processingType = "None"; // Default to "None" if neither checkbox is checked
+    }
+
+    if (processingType == "BD" || processingType == "BGSub" || processingType == "Thresh") {
+        ui.setBackgroundImageButton->setEnabled(true);
+        format = QImage::Format_Grayscale8;
+    } else {
+        ui.setBackgroundImageButton->setEnabled(false);
+        format = QImage::Format_BGR888;
     }
 
     // Debug print or handle the processingType as needed
@@ -1114,5 +1260,34 @@ void MainWindow::queryMotorPositionHardCode() {
     }
 }
 
+void MainWindow::setBackgroundImage() {
+    if (processingType != "BD") return;
+
+    cv::cvtColor(captureThread->getFrame1(), backgroundImage1, cv::COLOR_BGR2GRAY);
+    cv::cvtColor(captureThread->getFrame2(), backgroundImage2, cv::COLOR_BGR2GRAY);
+    return;
+}
+
+void MainWindow::setBDValues() {
+    motionEnabled = ui.processingMotionEnabled->isChecked();
+    hsvEnabled = ui.processingHSVEnabled->isChecked();
+    morphEnabled = ui.processingMorphEnabled->isChecked();
+    centroidEnabled = ui.processingCentroidEnabled->isChecked();
+    drawEnabled = ui.processingDrawCentroidEnabled->isChecked();
+    thresholdValue = ui.processingBDThresholdSpinBox->value();
+    hMax = ui.processingHMax->value();
+    hMin = ui.processingHMin->value();
+    sMin = ui.processingSMin->value();
+    sMax = ui.processingSMax->value();
+    vMin = ui.processingVMin->value();
+    vMax = ui.processingVMax->value();
+
+    kernelSize = ui.processingMorphKernelSize->value();
+    if (prevKernelSize != kernelSize) {
+        cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(kernelSize, kernelSize));
+        prevKernelSize = kernelSize;
+    } 
+
+}
 
 
