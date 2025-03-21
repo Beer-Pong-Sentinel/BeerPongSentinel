@@ -583,10 +583,7 @@
              </item>
              <item row="2" column="3">
               <widget class="QPushButton" name="initAzPushButton">
-             <item row="2" column="3">
-              <widget class="QPushButton" name="initAzPushButton">
                <property name="text">
-                <string>Reset to Zero</string>
                 <string>Reset to Zero</string>
                </property>
               </widget>
