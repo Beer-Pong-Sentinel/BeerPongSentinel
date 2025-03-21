@@ -2,12 +2,12 @@
   "acquisition": {
     "AcquisitionMode": "Continuous",
     "ExposureAuto": "Off",
-    "ExposureTime": 16666.0,
+    "ExposureTime": 100000.0,
     "GainAuto": "Off",
-    "Gain": 10.0
+    "Gain": 5.0
   },
   "image_format": {
-    "PixelFormat": "Mono8"
+    "PixelFormat": "BGR8"
   },
   "primary_camera": {
     "DeviceID": "24292752",

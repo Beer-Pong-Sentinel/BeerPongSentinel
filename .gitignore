@@ -79,3 +79,4 @@ CMakeFiles
 *.cmake
 CMakeCache.txt
 ProcessedFrames
+.vscode

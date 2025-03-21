@@ -1,0 +1,10 @@
+{
+    "files.associations": {
+        "xstring": "cpp",
+        "vector": "cpp",
+        "chrono": "cpp",
+        "optional": "cpp",
+        "system_error": "cpp",
+        "random": "cpp"
+    }
+}
