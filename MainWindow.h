@@ -23,6 +23,7 @@ public:
 
 private slots:
     void toggleCal3DType();
+    void toggleMotorCameraCalType();
     void updateSavedCameraCalibrationFilesComboBox();
     void calibrateCameraWithSelectedFile();
     void resetNewCameraCalibration();
@@ -38,6 +39,7 @@ private slots:
     void indicateCameraCalibrationComplete();
     void setupCaptureThreadConnections();
     void onProcessedFramesReady(const cv::Mat &processedFrame1, const cv::Mat &processedFrame2);
+
 
 
 signals:
@@ -75,6 +77,7 @@ private:
     cv::Mat displacementTopRightBoardHoleToTopRightMountHole = (cv::Mat_<double>(3, 1) << -6, -12, 0) * 25.4;
     cv::Mat displacementRightLEDToTopRightBoardHole = (cv::Mat_<double>(3, 1) << 14, -842, 22); //ROUGH
     cv::Mat displacementRightLEDToOrigin = displacementRightLEDToTopRightBoardHole+displacementTopRightBoardHoleToTopRightMountHole+displacementTopRightMountHoleToOrigin;
+    std::vector<double> linspace(double lower, double upper, int num_points);
 
 
     cv::Mat rotationMatrix;
@@ -88,6 +91,12 @@ private:
     void initializeAltitude();
     void altitudeTest();
     void altitudeTimeTest();
+    void enableAltitude();
+    void disableAltitude();
+    double altitudeCalLowerLimit = 0;
+    double altitudeCalUpperLimit = 0;
+    std::vector<double> altitudeCalPositions;
+
 
     // for azimuth motor
     void initializeAzimuth();
@@ -95,9 +104,35 @@ private:
     void enableAzimuth();
     void disableAzimuth();
     int azimuthPosition = 0;
+    double azimuthCalLowerLimit = 0;
+    double azimuthCalUpperLimit = 0;
+    std::vector<double> azimuthCalPositions;
 
 
+    // motor camera cal
     void sendMotorPositions();
+    void homeMotors();
+
+    void moveAzLimit();
+    void moveAlLimit();
+
+    void setAzimuthLowerLimit();
+    void setAzimuthUpperLimit();
+
+    void setAltitudeLowerLimit();
+    void setAltitudeUpperLimit();
+
+    void sweepLookupTable();
+
+
+    // In your header, add state variables:
+    int currentAzIndex = 0;
+    int currentAlIndex = 0;
+    QTimer *sweepTimer = nullptr;
+    void performSweepStep();
+
+
+
 
 
 };

@@ -12,7 +12,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 ########################################################################
 # Set these paths to match your system:
 # TODO: Set your Qt installation directory here
-set(CMAKE_PREFIX_PATH "C:/Qt/6.8.2/msvc2022_64")
+set(CMAKE_PREFIX_PATH "C:/Qt/6.8.0/msvc2022_64")
 
 # TODO: Set your Spinnaker SDK path here
 set(SPINNAKER_SDK_PATH "C:/Program Files/Teledyne/Spinnaker")
@@ -86,7 +86,7 @@ link_directories("${OPEN_CV_PATH}/x64/vc16/lib")
 target_link_libraries(BeerPongSentinel PRIVATE
     Qt${QT_VERSION_MAJOR}::Widgets
     "${SPINNAKER_SDK_PATH}/lib64/vs2015/Spinnaker_v140.lib"
-    "${OPEN_CV_PATH}/x64/vc16/lib/opencv_world4110d.lib"
+    "${OPEN_CV_PATH}/x64/vc16/lib/opencv_world4100d.lib"
     "${TEKNIC_SDK_PATH}/sFoundation Source/sFoundation/win/Debug/x64/sFoundation20.lib"
     "${TEKNIC_SDK_PATH}/lib/win/Release/x64/sFoundation20.lib"
     Qt6::OpenGL

@@ -192,3 +192,62 @@ double moveAltitudeMotor(INode* altitudePointer, float absoluteAngle, int rpmLim
     qDebug() << "Move completed";
     return endTime - startTime;
 }
+
+
+double enableAltitudeMotor(INode* altitudePointer, bool enable){
+
+    if (altitudePointer == nullptr) {
+        qDebug() << "Altitude motor not initialized";
+        return 0;
+    }                      //Create System Manager myMgr
+
+    INode &theNode = *altitudePointer;
+
+    theNode.EnableReq(enable);
+
+    return 1;
+}
+
+
+void homeAltitudeMotor(INode* altitudePointer)
+{
+    if (altitudePointer == nullptr) {
+        qDebug() << "Altitude motor not initialized.";
+        return;
+    }
+
+    // Get the system manager and a reference to the node.
+    SysManager* myMgr = SysManager::Instance();
+    INode &theNode = *altitudePointer;
+
+    // Check if homing has been set up for this node.
+    if (!theNode.Motion.Homing.HomingValid()) {
+        qDebug() << "Homing settings not configured for this node.";
+        return;
+    }
+
+    // Log the current homing status and indicate that homing is beginning.
+    if (theNode.Motion.Homing.WasHomed()) {
+        qDebug() << "Node already homed, current position:" << theNode.Motion.PosnMeasured.Value();
+        qDebug() << "Rehoming Node...";
+    } else {
+        qDebug() << "Node not yet homed. Initiating homing procedure...";
+    }
+
+    // Initiate the homing procedure.
+    theNode.Motion.Homing.Initiate();
+
+    // Set a timeout to avoid an infinite loop.
+    double timeout = myMgr->TimeStampMsec() + TIME_TILL_TIMEOUT;
+    while (!theNode.Motion.Homing.WasHomed()) {
+        if (myMgr->TimeStampMsec() > timeout) {
+            qDebug() << "Error: Timed out waiting for homing to complete.";
+            return;
+        }
+    }
+
+    // Refresh and report the current position after successful homing.
+    theNode.Motion.PosnMeasured.Refresh();
+    qDebug() << "Homing complete. Current position:" << theNode.Motion.PosnMeasured.Value();
+}
+

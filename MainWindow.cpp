@@ -41,7 +41,7 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
 
     // Configure the serial port (modify these settings as necessary for your device)
 
-    serialPort->setPortName("COM21");
+    serialPort->setPortName("COM4");
 
     if (!serialPort->open(QIODevice::ReadWrite)) {
         qDebug() << "Error: Failed to open serial port" << serialPort->portName();
@@ -60,6 +60,8 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
 
     connect(ui.selectCal3DFromSavedFile, &QRadioButton::toggled, this, &MainWindow::toggleCal3DType);
     connect(ui.selectNewCal3D, &QRadioButton::toggled, this, &MainWindow::toggleCal3DType);
+    connect(ui.selectMoCamCalFromSavedFile, &QRadioButton::toggled, this, &MainWindow::toggleMotorCameraCalType);
+    connect(ui.selectNewMoCamCal, &QRadioButton::toggled, this, &MainWindow::toggleMotorCameraCalType);
     connect(ui.savedCal3DFilesRefreshButton, &QPushButton::clicked, this, &MainWindow::updateSavedCameraCalibrationFilesComboBox);
     connect(ui.calibrateCal3DFromLoadedFile, &QPushButton::clicked, this, &MainWindow::calibrateCameraWithSelectedFile);
     connect(ui.newCal3DStartImageCaptureButton, &QPushButton::clicked, this, &MainWindow::newCameraCalibrationStartImageCapture);
@@ -69,7 +71,7 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
     connect(ui.calibrateNewCal3DButton, &QPushButton::clicked, this, &MainWindow::calibrateCameras);
     connect(ui.startCameraCaptureThreadButton, &QPushButton::clicked, this, &MainWindow::startCapture);
     connect(ui.stopCameraCaptureThreadButton, &QPushButton::clicked, this, &MainWindow::stopCapture);
-    connect(ui.startMotorCameraCalibrationButton, &QPushButton::clicked, this, &MainWindow::calibrateMotorCamera);
+    //connect(ui.startMotorCameraCalibrationButton, &QPushButton::clicked, this, &MainWindow::calibrateMotorCamera);
     connect(ui.sendMotorPositionButton, &QPushButton::clicked, this, &MainWindow::sendMotorPositions);
     connect(ui.setProcessingButton, &QPushButton::clicked, this, &MainWindow::setProcesseing);
     connect(ui.calibrateSphericalButton, &QPushButton::clicked, this, &MainWindow::sphericalCalibration);
@@ -91,7 +93,21 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
     connect(ui.sendAzimuthButton, &QPushButton::clicked, this, &MainWindow::azimuthTest);
     connect(this, &MainWindow::processedFramesReady, this, &MainWindow::onProcessedFramesReady);
 
+    connect(ui.enableAlButton, &QPushButton::clicked, this, &MainWindow::enableAltitude);
+    connect(ui.disableAlButton, &QPushButton::clicked, this, &MainWindow::disableAltitude);
 
+    connect(ui.homeMotorsButton, &QPushButton::clicked, this, &MainWindow::homeMotors);
+
+
+    connect(ui.goToAlLimitButton, &QPushButton::clicked, this, &MainWindow::moveAlLimit);
+    connect(ui.goToAzLimitButton, &QPushButton::clicked, this, &MainWindow::moveAzLimit);
+
+    connect(ui.setLowerAzLimit, &QPushButton::clicked, this, &MainWindow::setAzimuthLowerLimit);
+    connect(ui.setUpperAzLimit, &QPushButton::clicked, this, &MainWindow::setAzimuthUpperLimit);
+    connect(ui.setLowerAlLimit, &QPushButton::clicked, this, &MainWindow::setAltitudeLowerLimit);
+    connect(ui.setUpperAlLimit, &QPushButton::clicked, this, &MainWindow::setAltitudeUpperLimit);
+
+    connect(ui.startMotorCameraCalibrationButton, &QPushButton::clicked, this, &MainWindow::sweepLookupTable);
 
     qDebug()<<"connected thread";
 
@@ -103,6 +119,8 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
 MainWindow::~MainWindow() {
     // Cleanup if necessary
     stopCapture();
+    disableAltitude();
+    disableAzimuth();
 }
 
 void MainWindow::toggleCal3DType() {
@@ -114,6 +132,17 @@ void MainWindow::toggleCal3DType() {
         ui.loadCal3DFromSavedFileGroupBox->setEnabled(false);
         ui.newCal3DGroupBox->setEnabled(true);
         resetNewCameraCalibration();
+    }
+}
+
+void MainWindow::toggleMotorCameraCalType() {
+
+    if (ui.selectMoCamCalFromSavedFile->isChecked()) {
+        ui.newMoCamCalGroupbox->setEnabled(false);
+        ui.loadMoCamCalGroupbox->setEnabled(true);
+    } else if (ui.selectNewMoCamCal->isChecked()) {
+        ui.loadMoCamCalGroupbox->setEnabled(false);
+        ui.newMoCamCalGroupbox->setEnabled(true);
     }
 }
 
@@ -1008,6 +1037,130 @@ void MainWindow::altitudeTest() {
     moveAltitudeMotor(altitudePointer, absoluteAngle, rpmLimit);
 }
 
+void MainWindow::enableAltitude(){
+
+    enableAltitudeMotor(altitudePointer, true);
+
+}
+
+void MainWindow::disableAltitude(){
+
+    enableAltitudeMotor(altitudePointer, false);
+
+}
+
+// -------- MOTOR - CAMERA CALIBRATION STUFF -------------------
+
+void MainWindow::moveAlLimit()
+{
+    double altitudeLimit = ui.altitudeLimitSpinbox->value();
+    qDebug() << "moving altitude to " <<altitudeLimit << "degrees";
+    moveAltitudeMotor(altitudePointer, altitudeLimit, 0.0);
+    QThread::msleep(250);
+
+}
+
+
+void MainWindow::moveAzLimit() {
+    float absoluteAngle = ui.azimuthLimitSpinbox->value();
+    int steps = static_cast<int>((absoluteAngle)/ 0.45) - azimuthPosition;
+    sendSerialMessage(QString::number(steps));
+    azimuthPosition += steps;
+}
+
+
+void MainWindow::setAzimuthLowerLimit(){
+    azimuthCalLowerLimit = ui.azimuthLimitSpinbox->value();
+    qDebug() << "Azimuth calibration lower limit set to: " << azimuthCalLowerLimit;
+}
+
+void MainWindow::setAzimuthUpperLimit(){
+    azimuthCalUpperLimit = ui.azimuthLimitSpinbox->value();
+    qDebug() << "Azimuth calibration upper limit set to: " << azimuthCalUpperLimit;
+}
+
+void MainWindow::setAltitudeLowerLimit(){
+    altitudeCalLowerLimit = ui.altitudeLimitSpinbox->value();
+    qDebug() << "Altitude calibration lower limit set to: " << altitudeCalLowerLimit;
+}
+
+void MainWindow::setAltitudeUpperLimit(){
+    altitudeCalUpperLimit = ui.altitudeLimitSpinbox->value();
+    qDebug() << "Altitude calibration upper limit set to: " << altitudeCalUpperLimit;
+}
+
+
+std::vector<double> MainWindow::linspace(double lower, double upper, int num_points) {
+    std::vector<double> result;
+    if (num_points <= 0)
+        return result;
+    if (num_points == 1) {
+        result.push_back(lower);
+        return result;
+    }
+    double step = (upper - lower) / (num_points - 1);
+    for (int i = 0; i < num_points; ++i) {
+        result.push_back(lower + i * step);
+    }
+    return result;
+}
+
+
+
+// Define a slot to perform each step of the sweep:
+void MainWindow::performSweepStep() {
+    if (currentAzIndex >= azimuthCalPositions.size()) {
+        // Sweep is complete.
+        sweepTimer->stop();
+        sweepTimer->deleteLater();
+        return;
+    }
+
+    // For this example, we assume you move azimuth only once per azimuth index.
+    if (currentAlIndex == 0) {
+        double az = azimuthCalPositions[currentAzIndex];
+        qDebug() << "Moving azimuth to" << az << "degrees";
+        int steps = static_cast<int>(az / 0.45) - azimuthPosition;
+        sendSerialMessage(QString::number(steps));
+        azimuthPosition += steps;
+        // Let the event loop process events here naturally between timer ticks.
+    }
+
+    // Process altitude moves if needed:
+    if (currentAlIndex < altitudeCalPositions.size()) {
+        double al = altitudeCalPositions[currentAlIndex];
+        qDebug() << "Moving altitude to" << al << "degrees";
+        moveAltitudeMotor(altitudePointer, al, 0.0);
+        currentAlIndex++;
+    } else {
+        // All altitude positions processed for the current azimuth; move to the next azimuth.
+        currentAlIndex = 0;
+        currentAzIndex++;
+    }
+}
+
+void MainWindow::sweepLookupTable() {
+    // Set up your positions and reset indices
+    int numAzPoints = ui.numPointsAzimuthSpinbox->value();
+    int numAlPoints = ui.numPointsAltitudeSpinbox->value();
+
+    azimuthCalPositions = linspace(azimuthCalLowerLimit, azimuthCalUpperLimit, numAzPoints);
+    altitudeCalPositions = linspace(altitudeCalLowerLimit, altitudeCalUpperLimit, numAlPoints);
+    currentAzIndex = 0;
+    currentAlIndex = 0;
+
+    // Create and start a QTimer with an interval that suits your needs (e.g., 1000ms)
+    sweepTimer = new QTimer(this);
+    connect(sweepTimer, &QTimer::timeout, this, &MainWindow::performSweepStep);
+    sweepTimer->start(1000); // interval in milliseconds
+}
+
+
+
+
+// -----------------------------------------------------------------
+
+
 void MainWindow::azimuthTest() {
     float absoluteAngle = ui.aziValueSpinBox->value();
     int steps = static_cast<int>((absoluteAngle)/ 0.45) - azimuthPosition;
@@ -1019,6 +1172,18 @@ void MainWindow::azimuthTest() {
 void MainWindow::sendMotorPositions() {
     azimuthTest();
     altitudeTest();
+}
+
+
+
+void MainWindow::homeMotors(){
+
+    // if altitude not initialized
+    //if(altitudePointer==nullptr){
+    initializeAltitudeMotor();
+    // sleep for 1 second
+    QThread::msleep(250);
+    moveAzimuthMotor(serialPort,0.0);
 }
 
 void MainWindow::queryMotorPosition(quint16 aziValue, quint16 altValue, QSerialPort &localSerialPort) {
