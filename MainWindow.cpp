@@ -129,7 +129,10 @@ MainWindow::~MainWindow() {
     // Cleanup if necessary
     stopCapture();
     disableAltitude();
+    // not gonna work lol
     disableAzimuth();
+
+
 }
 
 void MainWindow::toggleCal3DType() {
@@ -591,6 +594,8 @@ void MainWindow::receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv
 
     }else if(processingType=="Thresh"){
 
+        //qDebug() << "In Thresh";
+
         //Retrieve the current threshold value from the spinbox
         int thresholdValue = ui.processingThresholdingThresholdSpinBox->value();
 
@@ -628,7 +633,9 @@ void MainWindow::receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv
 
                         // Convert from homogeneous coordinates (4×1) to Euclidean (3×1)
                         cv::Mat point3D = points4D.rowRange(0,3) / points4D.at<double>(3,0);
+                        //motorCameraCalibrationCurrentCentroid = point3D;
                         std::cout << "Triangulated 3D Point: " << point3D << std::endl;
+
                     } else {
                         qDebug() << "Projection matrices are empty, cannot triangulate.";
                     }
@@ -659,7 +666,8 @@ void MainWindow::receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv
         emit processedFramesReady(thresholdedImage1, thresholdedImage2);
     } else if (processingType == "BD") {
         setBDValues();
-        processImageCentroid(originalFrame1, originalFrame2, false);
+        motorCameraCalibrationCurrentCentroid = processImageCentroid(originalFrame1, originalFrame2, false);
+        qDebug() << "Centroid in receive and process frames: "<< motorCameraCalibrationCurrentCentroid.x << motorCameraCalibrationCurrentCentroid.y << motorCameraCalibrationCurrentCentroid.z ;
     } else {
         emit processedFramesReady(originalFrame1, originalFrame2);
     }
@@ -1222,23 +1230,29 @@ std::vector<double> MainWindow::linspace(double lower, double upper, int num_poi
 
 
 
-// Define a slot to perform each step of the sweep:
 void MainWindow::performSweepStep() {
     if (currentAzIndex >= azimuthCalPositions.size()) {
         // Sweep is complete.
         sweepTimer->stop();
         sweepTimer->deleteLater();
+
+        // Stop camera capture after the sweep is complete.
+        stopCapture();
+        processingType = "None";
+        ui.setBackgroundImageButton->setEnabled(false);
+        format = QImage::Format_BGR888;
+
+        qDebug() << "Sweep complete. Camera capture stopped.";
         return;
     }
 
-    // For this example, we assume you move azimuth only once per azimuth index.
+    // Process azimuth move once per azimuth index.
     if (currentAlIndex == 0) {
         double az = azimuthCalPositions[currentAzIndex];
         qDebug() << "Moving azimuth to" << az << "degrees";
         int steps = static_cast<int>(az / 0.45) - azimuthPosition;
         sendSerialMessage(QString::number(steps));
         azimuthPosition += steps;
-        // Let the event loop process events here naturally between timer ticks.
     }
 
     // Process altitude moves if needed:
@@ -1247,6 +1261,10 @@ void MainWindow::performSweepStep() {
         qDebug() << "Moving altitude to" << al << "degrees";
         moveAltitudeMotor(altitudePointer, al, 0.0);
         currentAlIndex++;
+
+        // Use a one-shot timer to wait 1 second for the motor to settle,
+        // then call a slot that prints the updated centroid.
+        QTimer::singleShot(1000, this, SLOT(processMotorSettled()));
     } else {
         // All altitude positions processed for the current azimuth; move to the next azimuth.
         currentAlIndex = 0;
@@ -1254,7 +1272,26 @@ void MainWindow::performSweepStep() {
     }
 }
 
+void MainWindow::processMotorSettled() {
+    qDebug() << "Motor settled. Processing image.";
+
+    // Optionally, if motorCameraCalibrationCurrentCentroid is updated from another thread,
+    // you should protect its access (for example, with a QMutex).
+    auto centroid = motorCameraCalibrationCurrentCentroid;
+    qDebug() << "LASER DOT:" << centroid.x << centroid.y << centroid.z;
+}
+
+
+
 void MainWindow::sweepLookupTable() {
+    qDebug() << "Starting Motor-Camera Sweep";
+
+    processingType = "BD";
+    ui.setBackgroundImageButton->setEnabled(true);
+    format = QImage::Format_Grayscale8;
+
+    startCapture();
+
     // Set up your positions and reset indices
     int numAzPoints = ui.numPointsAzimuthSpinbox->value();
     int numAlPoints = ui.numPointsAltitudeSpinbox->value();
@@ -1264,11 +1301,14 @@ void MainWindow::sweepLookupTable() {
     currentAzIndex = 0;
     currentAlIndex = 0;
 
-    // Create and start a QTimer with an interval that suits your needs (e.g., 1000ms)
+    // Create and start a QTimer with an interval that suits your needs (e.g., 2000ms)
     sweepTimer = new QTimer(this);
     connect(sweepTimer, &QTimer::timeout, this, &MainWindow::performSweepStep);
-    sweepTimer->start(1000); // interval in milliseconds
+    sweepTimer->start(2000); // interval in milliseconds
+
+    qDebug() << "Motor-Camera Sweep started";
 }
+
 
 #include <fstream>
 #include <cmath>

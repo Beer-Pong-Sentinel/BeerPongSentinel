@@ -22,6 +22,9 @@ public:
     time_t start = time(0);
     ~MainWindow();  // Destructor
 
+public slots:
+    void processMotorSettled();
+
 private slots:
     void toggleCal3DType();
     void toggleMotorCameraCalType();
@@ -138,6 +141,8 @@ private:
     QTimer *sweepTimer = nullptr;
     void performSweepStep();
     void calculateLookupTable();
+
+    cv::Point3f motorCameraCalibrationCurrentCentroid = cv::Point3f(-1,-1,-1);
 
 
 

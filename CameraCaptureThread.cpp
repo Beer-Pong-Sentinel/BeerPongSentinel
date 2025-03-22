@@ -16,49 +16,77 @@ CameraCaptureThread::CameraCaptureThread(CameraStreamWidget *parent)
 }
 
 bool CameraCaptureThread::initializeCameras() {
-    // Clear previous camera list and system if they were previously allocated
-    qDebug()<<"In initialize cameras";
+    qDebug() << "In initialize cameras";
+
+    // Clear previous camera list and system if they were allocated
     if (system) {
         camList.Clear();
-        qDebug()<<"cleared camlist";
+        qDebug() << "Cleared camList";
         system->ReleaseInstance();
-        qDebug()<<"released system instance";
+        qDebug() << "Released system instance";
     }
 
+    // Get a new system instance and camera list
     system = Spinnaker::System::GetInstance();
-    qDebug()<<"created new system instance";
+    qDebug() << "Created new system instance";
     camList = system->GetCameras();
-    qDebug()<<"created new camlist";
+    qDebug() << "Created new camList";
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
-    if (camList.GetSize() >= 2) {
-        camera1 = camList.GetByIndex(0);
-        camera2 = camList.GetByIndex(1);
-
-        camera1->Init();
-        qDebug()<<"init camera1";
-        INodeMap& nodeMap1 = camera1->GetNodeMap();
-        qDebug()<<"got camera1 nodepam";
-        ConfigureCameraSettings(nodeMap1);
-
-
-        qDebug()<<"configured camera1 settings";
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
-        qDebug()<<"waited 500ms";
-        camera2->Init();
-        qDebug()<<"init camera2";        
-        INodeMap& nodeMap2 = camera2->GetNodeMap();
-        qDebug()<<"got camera2 nodemap";        
-        ConfigureCameraSettings(nodeMap2);
-        qDebug()<<"configured camera2 settings";
-
-        cameraAvailable = true;
-    } else {
+    // Ensure we have at least two cameras
+    if (camList.GetSize() < 2) {
         qDebug() << "Not enough cameras found!";
         cameraAvailable = false;
+        return cameraAvailable;
     }
 
-    return isCameraAvailable();
+    // Define desired serial numbers
+    const std::string desiredSerial1 = "24292752";
+    const std::string desiredSerial2 = "24292737";
+
+    // Manually search for the cameras with the desired serials
+    camera1 = nullptr;
+    camera2 = nullptr;
+    for (unsigned int i = 0; i < camList.GetSize(); i++) {
+        Spinnaker::CameraPtr cam = camList.GetByIndex(i);
+        INodeMap &nodeMapTL = cam->GetTLDeviceNodeMap();
+        std::string serial = GetStringNode(nodeMapTL, "DeviceSerialNumber");
+        qDebug() << "Camera index" << i << "serial:" << QString::fromStdString(serial);
+
+        if (serial == desiredSerial1) {
+            camera1 = cam;
+        } else if (serial == desiredSerial2) {
+            camera2 = cam;
+        }
+    }
+
+    // Check that both cameras were found
+    if (!camera1 || !camera2) {
+        qDebug() << "Error: Unable to locate both required cameras.";
+        cameraAvailable = false;
+        return cameraAvailable;
+    }
+
+    // Initialize and configure camera1
+    camera1->Init();
+    qDebug() << "Initialized camera1 with serial:" << QString::fromStdString(desiredSerial1);
+    INodeMap &nodeMap1 = camera1->GetNodeMap();
+    ConfigureCameraSettings(nodeMap1);
+    qDebug() << "Configured camera1 settings";
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+    // Initialize and configure camera2
+    camera2->Init();
+    qDebug() << "Initialized camera2 with serial:" << QString::fromStdString(desiredSerial2);
+    INodeMap &nodeMap2 = camera2->GetNodeMap();
+    ConfigureCameraSettings(nodeMap2);
+    qDebug() << "Configured camera2 settings";
+
+    cameraAvailable = true;
+    return cameraAvailable;
 }
+
 
 
 void CameraCaptureThread::startCapture() {
