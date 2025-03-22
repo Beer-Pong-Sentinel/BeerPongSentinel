@@ -32,12 +32,12 @@ std::vector<cv::Point> FindCentroids(const cv::Mat& thresholded_img) {
 
         // Check if the area (m00) is non-zero to avoid division by zero
         if (M.m00 != 0) {
-            qDebug() << "Centroid found";
+            // qDebug() << "Centroid found";
             int cX = static_cast<int>(M.m10 / M.m00);
             int cY = static_cast<int>(M.m01 / M.m00);
             centroids.emplace_back(cX, cY); // Add the centroid to the vector
         } else { // to make LED calibration more reliable (don't remove)
-            qDebug() << "Found contour with zero area, using first edge point as centroid";
+            // qDebug() << "Found contour with zero area, using first edge point as centroid";
             int cX = contour[0].x;
             int cY = contour[0].y;
             centroids.emplace_back(cX, cY);
@@ -134,11 +134,25 @@ cv::Mat ApplyThreshold(const cv::Mat& inputImage, double thresholdValue, double 
     return thresholdedImage;
 }
 
-void ApplyHSVThreshold(const cv::Mat& input, cv::Mat& tmp, cv::Mat& output, double minH, double maxH, double minS, double maxS, double minV, double maxV) {
-    // Convert the input image to HSV color space and store in tmp
+void ApplyHSVThreshold(const cv::Mat& input, cv::Mat& tmp, cv::Mat& output, 
+                       double minH, double maxH, 
+                       double minS, double maxS, 
+                       double minV, double maxV) {
+    // Convert the input image to HSV color space
     cv::cvtColor(input, tmp, cv::COLOR_BGR2HSV);
-    // Use inRange to apply the thresholds efficiently
-    cv::inRange(tmp, cv::Scalar(minH, minS, minV), cv::Scalar(maxH, maxS, maxV), output);
+
+    if (maxH > 180) {
+        // First mask for range [minH, 180]
+        cv::Mat mask1, mask2;
+        cv::inRange(tmp, cv::Scalar(minH, minS, minV), cv::Scalar(180, maxS, maxV), mask1);
+        // Second mask for range [0, maxH - 180]
+        cv::inRange(tmp, cv::Scalar(0, minS, minV), cv::Scalar(maxH - 180, maxS, maxV), mask2);
+        // Combine the two masks
+        cv::bitwise_or(mask1, mask2, output);
+    } else {
+        // Normal case (no wrap-around)
+        cv::inRange(tmp, cv::Scalar(minH, minS, minV), cv::Scalar(maxH, maxS, maxV), output);
+    }
 }
 
 cv::Mat TestApplyHSVThreshold(const cv::Mat& input, double minH, double maxH, double minS, double maxS, double minV, double maxV) {
@@ -192,3 +206,4 @@ void DrawCentroidBinary(cv::Mat& image, const cv::Point2f& centroid, int radius,
         cv::circle(image, centroid, radius, color, thickness);
     }
 }
+

@@ -141,7 +141,7 @@ private:
 
     // for ball detection
     int thresholdValue, hMax, hMin, sMax, sMin, vMax, vMin;
-    bool hsvEnabled = true, motionEnabled = true, morphEnabled = true, centroidEnabled = true, drawEnabled = false;
+    bool hsvEnabled = true, bgrEnabled = true, motionEnabled = true, morphEnabled = true, centroidEnabled = true, drawEnabled = false;
     int kernelSize = 5, prevKernelSize = -1;
     cv::Mat backgroundImage1, backgroundImage2;
     cv::Mat tmp1, tmp2;
@@ -151,8 +151,16 @@ private:
     cv::Mat processedFrame1, processedFrame2;
 
     ProcessTimer* hsvTimer = new ProcessTimer("HSV Threshold", 200, 5000, this);
+    ProcessTimer* bgrTimer = new ProcessTimer("HSV Threshold", 200, 5000, this);
     ProcessTimer* motionTimer = new ProcessTimer("Motion Threshold", 200, 5000, this);
+    ProcessTimer* morphTimer = new ProcessTimer("Morph Close", 200, 5000, this);
+    ProcessTimer* centroidTimer = new ProcessTimer("Centroid", 200, 5000, this);
     ProcessTimer* totalTimer = new ProcessTimer("Total Processing", 200, 5000, this);
+
+    cv::Point3f processImageCentroid(const cv::Mat &originalFrame1, const cv::Mat &originalFrame2, bool timingEnabled);
+    cv::Point3f processImages(const cv::Mat &originalFrame1, const cv::Mat &originalFrame2, bool timingEnabled);
+    void processSingleImage(const cv::Mat &originalFrame, cv::Mat &output, bool timingEnabled);
+    cv::Point3f handleCentroids(const std::vector<cv::Point> &centroids1, const std::vector<cv::Point> &centroids2);
 };
 
 #endif // MAINWINDOW_H
