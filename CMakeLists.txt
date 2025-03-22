@@ -12,7 +12,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 ########################################################################
 # Set these paths to match your system:
 # TODO: Set your Qt installation directory here
-set(CMAKE_PREFIX_PATH "C:/Qt/6.8.0/msvc2022_64")
+set(CMAKE_PREFIX_PATH "C:/Qt/6.8.2/msvc2022_64")
 
 # TODO: Set your Spinnaker SDK path here
 set(SPINNAKER_SDK_PATH "C:/Program Files/Teledyne/Spinnaker")
