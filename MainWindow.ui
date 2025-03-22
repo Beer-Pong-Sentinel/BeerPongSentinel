@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1578</width>
-    <height>930</height>
+    <height>1022</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -163,7 +163,7 @@
        <bool>true</bool>
       </property>
       <property name="currentIndex">
-       <number>2</number>
+       <number>0</number>
       </property>
       <property name="tabsClosable">
        <bool>false</bool>
@@ -1487,7 +1487,7 @@ This will automatically move calculate the transfer matrix between the encoder c
      <x>0</x>
      <y>0</y>
      <width>1578</width>
-     <height>25</height>
+     <height>24</height>
     </rect>
    </property>
   </widget>
@@ -1507,8 +1507,8 @@ This will automatically move calculate the transfer matrix between the encoder c
  <resources/>
  <connections/>
  <buttongroups>
+  <buttongroup name="buttonGroup"/>
   <buttongroup name="selectCal3DTypeButtonGroup"/>
   <buttongroup name="showProcessingButtonGroup"/>
-  <buttongroup name="buttonGroup"/>
  </buttongroups>
 </ui>

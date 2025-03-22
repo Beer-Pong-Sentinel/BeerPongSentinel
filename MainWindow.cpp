@@ -41,7 +41,7 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
 
     // Configure the serial port (modify these settings as necessary for your device)
 
-    serialPort->setPortName("COM4");
+    serialPort->setPortName("COM9");
 
     if (!serialPort->open(QIODevice::ReadWrite)) {
         qDebug() << "Error: Failed to open serial port" << serialPort->portName();
@@ -1489,8 +1489,8 @@ void MainWindow::processSingleImage(const cv::Mat &originalFrame, cv::Mat &outpu
             }
         }
 
-        if (hsvEnabled && motionEnabled) {
-            ApplyMotionThresholdConsecutively(originalFrame, tmpGray1, output, backgroundImage1, thresholdValue);
+        if (hsvEnabled || bgrEnabled && motionEnabled) {
+            ApplyThresholdConsecutively(originalFrame, tmpGray1, output, backgroundImage1, thresholdValue);
         } else if (motionEnabled) {
             ApplyMotionThreshold(originalFrame, tmpGray1, output, backgroundImage1, thresholdValue);
         }
