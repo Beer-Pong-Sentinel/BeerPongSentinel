@@ -69,6 +69,7 @@ private:
     void queryMotorPositionHardCode();
     void setBDValues();
     void saveProcessedFrames();
+    void checkLEDDistances();
 
     //possible variants: None, thresh and bgsub
     QString  processingType="None";
