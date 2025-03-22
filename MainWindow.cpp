@@ -24,6 +24,8 @@
 #include <QMutex>
 #include <time.h>
 #include <sstream>
+#include <cmath>
+#include <iomanip>
 //#include <QmlDebuggingEnabler>
 
 using json = nlohmann::json;
@@ -110,6 +112,11 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
     connect(ui.setUpperAlLimit, &QPushButton::clicked, this, &MainWindow::setAltitudeUpperLimit);
 
     connect(ui.startMotorCameraCalibrationButton, &QPushButton::clicked, this, &MainWindow::sweepLookupTable);
+
+    connect(ui.farSweepRadioButton, &QRadioButton::toggled, this, &MainWindow::toggleNearFarSweep);
+    connect(ui.nearSweepRadioButton, &QRadioButton::toggled, this, &MainWindow::toggleNearFarSweep);
+
+
 
     qDebug()<<"connected thread";
 
@@ -1197,6 +1204,38 @@ void MainWindow::disableAltitude(){
 
 // -------- MOTOR - CAMERA CALIBRATION STUFF -------------------
 
+
+void MainWindow::toggleNearFarSweep() {
+
+    if (ui.farSweepRadioButton->isChecked()) {
+        // if far away the sweep settings are enabled
+        ui.azimuthLimitSpinbox->setEnabled(true);
+        ui.goToAzLimitButton->setEnabled(true);
+        ui.setLowerAzLimit->setEnabled(true);
+        ui.setUpperAzLimit->setEnabled(true);
+        ui.numPointsAzimuthSpinbox->setEnabled(true);
+
+        ui.altitudeLimitSpinbox->setEnabled(true);
+        ui.goToAlLimitButton->setEnabled(true);
+        ui.setLowerAlLimit->setEnabled(true);
+        ui.setUpperAlLimit->setEnabled(true);
+        ui.numPointsAltitudeSpinbox->setEnabled(true);
+    } else if (ui.nearSweepRadioButton->isChecked()) {
+        // if near sweep selected disable so you can't change
+        ui.azimuthLimitSpinbox->setEnabled(false);
+        ui.goToAzLimitButton->setEnabled(false);
+        ui.setLowerAzLimit->setEnabled(false);
+        ui.setUpperAzLimit->setEnabled(false);
+        ui.numPointsAzimuthSpinbox->setEnabled(false);
+
+        ui.altitudeLimitSpinbox->setEnabled(false);
+        ui.goToAlLimitButton->setEnabled(false);
+        ui.setLowerAlLimit->setEnabled(false);
+        ui.setUpperAlLimit->setEnabled(false);
+        ui.numPointsAltitudeSpinbox->setEnabled(false);
+    }
+}
+
 void MainWindow::moveAlLimit()
 {
     double altitudeLimit = ui.altitudeLimitSpinbox->value();
@@ -1299,6 +1338,98 @@ void MainWindow::sweepLookupTable() {
     sweepTimer = new QTimer(this);
     connect(sweepTimer, &QTimer::timeout, this, &MainWindow::performSweepStep);
     sweepTimer->start(1000); // interval in milliseconds
+}
+
+#include <fstream>
+#include <cmath>
+#include <iomanip>
+#include "json.hpp"  // nlohmann::json header
+
+// Make sure these are declared in your MainWindow class if not already:
+// std::vector<double> azimuthCalPositions;
+// std::vector<double> altitudeCalPositions;
+// int azimuthPosition;  // current azimuth motor position
+
+void MainWindow::calculateLookupTable() {
+    // Open the far and near JSON files
+    std::ifstream farFile("far_sweep_data.json");
+    std::ifstream nearFile("near_sweep_data.json");
+
+    if (!farFile.is_open() || !nearFile.is_open()) {
+        qDebug() << "Error: Could not open one of the JSON files.";
+        return;
+    }
+
+    // Parse JSON data from the files
+    nlohmann::json farJson, nearJson;
+    try {
+        farFile >> farJson;
+        nearFile >> nearJson;
+    } catch (const std::exception &e) {
+        qDebug() << "Error parsing JSON:" << e.what();
+        return;
+    }
+
+    // Extract the "sweep" arrays from both JSON objects
+    auto farSweep = farJson["sweep"];
+    auto nearSweep = nearJson["sweep"];
+
+    // Verify that both files contain the same number of sweep points
+    if (farSweep.size() != nearSweep.size()) {
+        qDebug() << "Error: Mismatch in the number of sweep points between far and near files.";
+        return;
+    }
+
+    // Prepare the lookup table JSON object
+    nlohmann::json lookupTableJson;
+    lookupTableJson["lookuptable"] = nlohmann::json::array();
+
+    // For each row, calculate the unit vector from near point to far point.
+    for (size_t i = 0; i < farSweep.size(); ++i) {
+        // Each row is expected to be of the form: [az, al, x, y, z]
+        double az = farSweep[i][0];
+        double al = farSweep[i][1];
+
+        // Far sweep coordinates
+        double farX = farSweep[i][2];
+        double farY = farSweep[i][3];
+        double farZ = farSweep[i][4];
+
+        // Near sweep coordinates
+        double nearX = nearSweep[i][2];
+        double nearY = nearSweep[i][3];
+        double nearZ = nearSweep[i][4];
+
+        // Compute the difference vector: far - near
+        double diffX = farX - nearX;
+        double diffY = farY - nearY;
+        double diffZ = farZ - nearZ;
+
+        // Calculate the Euclidean norm (magnitude) of the difference vector
+        double norm = std::sqrt(diffX * diffX + diffY * diffY + diffZ * diffZ);
+        double ux = 0.0, uy = 0.0, uz = 0.0;
+        if (norm > 1e-8) {  // Avoid division by zero
+            ux = diffX / norm;
+            uy = diffY / norm;
+            uz = diffZ / norm;
+        }
+
+        // Build a row with the following format:
+        // [az, al, nearX, nearY, nearZ, ux, uy, uz]
+        nlohmann::json row = { az, al, nearX, nearY, nearZ, ux, uy, uz };
+        lookupTableJson["lookuptable"].push_back(row);
+    }
+
+    // Write the lookup table to "lookuptable.json"
+    std::ofstream outFile("lookuptable.json");
+    if (!outFile.is_open()) {
+        qDebug() << "Error: Could not open lookuptable.json for writing.";
+        return;
+    }
+    outFile << std::setw(4) << lookupTableJson;
+    outFile.close();
+
+    qDebug() << "Lookup table successfully calculated and saved to lookuptable.json";
 }
 
 

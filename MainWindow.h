@@ -129,12 +129,15 @@ private:
 
     void sweepLookupTable();
 
+    void toggleNearFarSweep();
+
 
     // In your header, add state variables:
     int currentAzIndex = 0;
     int currentAlIndex = 0;
     QTimer *sweepTimer = nullptr;
     void performSweepStep();
+    void calculateLookupTable();
 
 
 
