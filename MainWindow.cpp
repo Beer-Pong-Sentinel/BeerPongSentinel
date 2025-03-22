@@ -41,7 +41,7 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
 
     // Configure the serial port (modify these settings as necessary for your device)
 
-    serialPort->setPortName("COM4");
+    serialPort->setPortName("COM9");
 
     if (!serialPort->open(QIODevice::ReadWrite)) {
         qDebug() << "Error: Failed to open serial port" << serialPort->portName();
@@ -655,77 +655,7 @@ void MainWindow::receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv
         emit processedFramesReady(thresholdedImage1, thresholdedImage2);
     } else if (processingType == "BD") {
         setBDValues();
-        
-        QtConcurrent::run([this, originalFrame1, originalFrame2]() {
-            totalTimer->timeVoid([&]() {
-                cv::Point2f centroid1, centroid2;
-                // Run processing in parallel
-                QFuture<void> futureOutput1 = QtConcurrent::run([&]() {
-                    if (hsvEnabled) hsvTimer->timeVoid([&]() { 
-                        TestApplyBGRThreshold(originalFrame1, tmp1, output1, hMin, hMax, sMin, sMax, vMin, vMax); 
-                    });
-
-                    if (hsvEnabled && motionEnabled) {
-                        motionTimer->timeVoid([&]() {
-                            ApplyMotionThresholdConsecutively(originalFrame1, tmpGray1, output1, backgroundImage1, thresholdValue);
-                        });
-                    } else if (motionEnabled) {
-                        motionTimer->timeVoid([&]() {
-                            ApplyMotionThreshold(originalFrame1, tmpGray1, output1, backgroundImage1, thresholdValue);
-                        });
-                    }
-
-                    if ((hsvEnabled || motionEnabled) && morphEnabled) {
-                        ApplyMorphClosing(output1, kernel);
-                    }
-
-                    if (centroidEnabled) {
-                        motionTimer->timeVoid([&]() {
-                            centroid1 = ComputeCentroid(output1);
-                        });
-                    }
-                });
-
-                QFuture<void> futureOutput2 = QtConcurrent::run([&]() {
-                    if (hsvEnabled) TestApplyBGRThreshold(originalFrame2, tmp2, output2, hMin, hMax, sMin, sMax, vMin, vMax);
-
-                    if (hsvEnabled && motionEnabled) {
-                        ApplyMotionThresholdConsecutively(originalFrame2, tmpGray2, output2, backgroundImage2, thresholdValue);
-                    } else if (motionEnabled) {
-                        ApplyMotionThreshold(originalFrame2, tmpGray2, output2, backgroundImage2, thresholdValue);
-                    }
-
-                    if ((hsvEnabled || motionEnabled) && morphEnabled) {
-                        ApplyMorphClosing(output2, kernel);
-                    }
-
-                    if (centroidEnabled) centroid2 = ComputeCentroid(output2);
-                });
-            
-
-                futureOutput1.waitForFinished();
-                futureOutput2.waitForFinished();
-                
-                
-                // if (centroidEnabled) {
-                //     motionTimer->timeVoid([&]() {
-                //         centroid1 = ComputeCentroid(output1);
-                //         centroid2 = ComputeCentroid(output2);
-                    
-
-                //         if (drawEnabled) {
-                //             DrawCentroidBinary(output1, centroid1);
-                //             DrawCentroidBinary(output2, centroid2);
-                //         }
-                //     });
-                // }
-                
-                // Emit the processed frames
-                processedFrame1 = output1.clone();
-                processedFrame2 = output2.clone();
-                emit processedFramesReady(processedFrame1, processedFrame2);
-            });
-        });
+        processImageCentroid(originalFrame1, originalFrame2, false);
     } else {
         emit processedFramesReady(originalFrame1, originalFrame2);
     }
@@ -1483,6 +1413,7 @@ void MainWindow::setBackgroundImage() {
 void MainWindow::setBDValues() {
     motionEnabled = ui.processingMotionEnabled->isChecked();
     hsvEnabled = ui.processingHSVEnabled->isChecked();
+    bgrEnabled = ui.processingBGREnabled->isChecked();
     morphEnabled = ui.processingMorphEnabled->isChecked();
     centroidEnabled = ui.processingCentroidEnabled->isChecked();
     drawEnabled = ui.processingDrawCentroidEnabled->isChecked();
@@ -1502,4 +1433,143 @@ void MainWindow::setBDValues() {
 
 }
 
+cv::Point3f MainWindow::processImageCentroid(const cv::Mat &originalFrame1, const cv::Mat &originalFrame2, bool timingEnabled) {
+    setBDValues();
+    if (originalFrame1.empty() || originalFrame2.empty()) {
+        qDebug() << "One or both input frames are empty!";
+        return cv::Point3f(-1, -1, -1);
+    }
+    if (timingEnabled) {
+        // Use totalTimer when timing is enabled
+        QtConcurrent::run([this, originalFrame1, originalFrame2]() {
+            totalTimer->timeVoid([&]() {
+                return processImages(originalFrame1, originalFrame2, true);
+            });
+        });
+    } else {
+        // Skip totalTimer when timing is not enabled
+        QtConcurrent::run([this, originalFrame1, originalFrame2]() {
+            return processImages(originalFrame1, originalFrame2, false);
+        });
+    }
+}
 
+cv::Point3f MainWindow::processImages(const cv::Mat &originalFrame1, const cv::Mat &originalFrame2, bool timingEnabled) {
+    cv::Point3f point = cv::Point3f(-1, -1, -1);
+    // Process image 1
+    QFuture<void> futureOutput1 = QtConcurrent::run([&]() {
+        processSingleImage(originalFrame1, output1, timingEnabled);
+    });
+
+    // Process image 2
+    QFuture<void> futureOutput2 = QtConcurrent::run([&]() {
+        processSingleImage(originalFrame2, output2, false);
+    });
+
+    // Wait for both outputs to be processed
+    futureOutput1.waitForFinished();
+    futureOutput2.waitForFinished();
+
+    // Find centroids in the thresholded images
+    std::vector<cv::Point> centroids1 = FindCentroids(output1);
+    std::vector<cv::Point> centroids2 = FindCentroids(output2);
+
+    if (drawEnabled && centroids1.size() == 1) DrawCentroidBinary(output1, centroids1[0]);
+    if (drawEnabled && centroids2.size() == 1) DrawCentroidBinary(output2, centroids2[0]);
+
+    if (centroids1.size() == 1 and centroids2.size() == 1) {
+        // qDebug() << "Found singular centroid in both images";
+        point = handleCentroids(centroids1, centroids2);
+        qDebug() << "Centroid:" << point.x << point.y << point.z;
+    }
+    else {
+        qDebug() << "No single centroid found";
+    }
+
+    processedFrame1 = output1.clone();
+    processedFrame2 = output2.clone();  
+    emit processedFramesReady(processedFrame1, processedFrame2);
+    return point;
+}
+
+void MainWindow::processSingleImage(const cv::Mat &originalFrame, cv::Mat &output, bool timingEnabled) {
+    if (timingEnabled) {
+        // Apply HSV and BGR Thresholding with timers
+        if (hsvEnabled || bgrEnabled) {
+            if (bgrEnabled) {
+                bgrTimer->timeVoid([&]() {
+                    TestApplyBGRThreshold(originalFrame, tmp1, output, hMin, hMax, sMin, sMax, vMin, vMax);
+                });
+            }
+            if (hsvEnabled) {
+                hsvTimer->timeVoid([&]() {
+                    ApplyHSVThreshold(originalFrame, tmp1, output, hMin, hMax, sMin, sMax, vMin, vMax);
+                });
+            }
+        }
+
+        // Apply Motion Thresholding with timers
+        if (hsvEnabled && motionEnabled) {
+            motionTimer->timeVoid([&]() {
+                ApplyMotionThresholdConsecutively(originalFrame, tmpGray1, output, backgroundImage1, thresholdValue);
+            });
+        } else if (motionEnabled) {
+            motionTimer->timeVoid([&]() {
+                ApplyMotionThreshold(originalFrame, tmpGray1, output, backgroundImage1, thresholdValue);
+            });
+        }
+
+        // Apply Morphological Closing with a timer
+        if ((hsvEnabled || motionEnabled) && morphEnabled) {
+            morphTimer->timeVoid([&]() {
+                ApplyMorphClosing(output, kernel);
+            });
+        }
+    } else {
+        // If timers are not enabled, process normally (no timers)
+        if (hsvEnabled || bgrEnabled) {
+            if (bgrEnabled) {
+                TestApplyBGRThreshold(originalFrame, tmp1, output, hMin, hMax, sMin, sMax, vMin, vMax);
+            }
+            if (hsvEnabled) {
+                ApplyHSVThreshold(originalFrame, tmp1, output, hMin, hMax, sMin, sMax, vMin, vMax);
+            }
+        }
+
+        if (hsvEnabled || bgrEnabled && motionEnabled) {
+            ApplyThresholdConsecutively(originalFrame, tmpGray1, output, backgroundImage1, thresholdValue);
+        } else if (motionEnabled) {
+            ApplyMotionThreshold(originalFrame, tmpGray1, output, backgroundImage1, thresholdValue);
+        }
+
+        if ((hsvEnabled || motionEnabled) && morphEnabled) {
+            ApplyMorphClosing(output, kernel);
+        }
+    }
+}
+
+cv::Point3f MainWindow::handleCentroids(const std::vector<cv::Point> &centroids1, const std::vector<cv::Point> &centroids2) {
+    if (centroids1.empty() || centroids2.empty()) {
+        qDebug() << "No centroids found";
+        return cv::Point3f(-1, -1, -1);
+    }
+    // Case 2: Exactly one centroid in each image: triangulate
+    else if (centroids1.size() == 1 && centroids2.size() == 1) {
+        if (!P1.empty() && !P2.empty()) {
+            // Perform triangulation here
+            cv::Mat pts1 = (cv::Mat_<double>(2,1) << static_cast<double>(centroids1[0].x), static_cast<double>(centroids1[0].y));
+            cv::Mat pts2 = (cv::Mat_<double>(2,1) << static_cast<double>(centroids2[0].x), static_cast<double>(centroids2[0].y));
+
+            cv::Mat points4D;
+            cv::triangulatePoints(P1, P2, pts1, pts2, points4D);
+
+            // Convert from homogeneous coordinates (4×1) to Euclidean (3×1)
+            cv::Mat point3D = points4D.rowRange(0, 3) / points4D.at<double>(3, 0);
+            // std::cout << "Triangulated 3D Point: " << point3D << std::endl;
+            return cv::Point3f(point3D.at<double>(0), point3D.at<double>(1), point3D.at<double>(2));
+        } else {
+            qDebug() << "Projection matrices are empty, cannot triangulate.";
+            return cv::Point3f(-1, -1, -1);
+        }
+    }
+}
