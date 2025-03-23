@@ -163,7 +163,7 @@
        <bool>true</bool>
       </property>
       <property name="currentIndex">
-       <number>2</number>
+       <number>0</number>
       </property>
       <property name="tabsClosable">
        <bool>false</bool>
@@ -1484,8 +1484,8 @@ This will automatically move calculate the transfer matrix between the encoder c
  <resources/>
  <connections/>
  <buttongroups>
+  <buttongroup name="buttonGroup"/>
   <buttongroup name="selectCal3DTypeButtonGroup"/>
   <buttongroup name="showProcessingButtonGroup"/>
-  <buttongroup name="buttonGroup"/>
  </buttongroups>
 </ui>

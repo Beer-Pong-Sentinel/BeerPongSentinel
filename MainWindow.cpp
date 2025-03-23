@@ -43,7 +43,7 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
 
     // Configure the serial port (modify these settings as necessary for your device)
 
-    serialPort->setPortName("COM4");
+    serialPort->setPortName("COM9");
 
     if (!serialPort->open(QIODevice::ReadWrite)) {
         qDebug() << "Error: Failed to open serial port" << serialPort->portName();
@@ -249,10 +249,13 @@ void MainWindow::calibrateCameraWithSelectedFile() {
         qDebug() << "Successfully loaded P1, P2, and projectionError from" << filePath;
         qDebug() << "Projection error:" << projectionError;
         indicateCameraCalibrationComplete();
+        checkLEDDistances();
     } catch (json::exception &e) {
         qDebug() << "JSON parsing error:" << e.what();
     }
 }
+
+
 
 void MainWindow::resetNewCameraCalibration() {
     if (ui.newCal3DGroupBox->isEnabled()) {
@@ -767,17 +770,41 @@ std::vector<cv::Point> MainWindow::reorderCentroids(const std::vector<cv::Point>
     }
 
 
-    cv::Point left_centroid = centroids[0];
+    // cv::Point left_centroid = centroids[0];
+    // for (const auto& centroid : centroids) {
+    //     if (centroid.x < left_centroid.x) {
+    //         left_centroid = centroid;
+    //     }
+    // }
+
+    // // Step 2: Separate the remaining two centroids
+    // std::vector<cv::Point> remaining_centroids;
+    // for (const auto& centroid : centroids) {
+    //     if (centroid != left_centroid) {
+    //         remaining_centroids.push_back(centroid);
+    //         if (remaining_centroids.size() > 2) {
+    //             qDebug() << "Reordering error";
+    //         }
+    //     }
+    // }
+
+    // cv::Point top_centroid = remaining_centroids[0];
+    // cv::Point right_centroid = remaining_centroids[1];
+    // if (remaining_centroids[0].y > remaining_centroids[1].y) {
+    //     std::swap(top_centroid, right_centroid);
+    // }
+
+    cv::Point right_centroid = centroids[0];
     for (const auto& centroid : centroids) {
-        if (centroid.x < left_centroid.x) {
-            left_centroid = centroid;
+        if (centroid.x > right_centroid.x) {
+            right_centroid = centroid;
         }
     }
 
     // Step 2: Separate the remaining two centroids
     std::vector<cv::Point> remaining_centroids;
     for (const auto& centroid : centroids) {
-        if (centroid != left_centroid) {
+        if (centroid != right_centroid) {
             remaining_centroids.push_back(centroid);
             if (remaining_centroids.size() > 2) {
                 qDebug() << "Reordering error";
@@ -786,7 +813,7 @@ std::vector<cv::Point> MainWindow::reorderCentroids(const std::vector<cv::Point>
     }
 
     cv::Point top_centroid = remaining_centroids[0];
-    cv::Point right_centroid = remaining_centroids[1];
+    cv::Point left_centroid = remaining_centroids[1];
     if (remaining_centroids[0].y > remaining_centroids[1].y) {
         std::swap(top_centroid, right_centroid);
     }
@@ -869,6 +896,31 @@ std::vector<cv::Mat> MainWindow::getLEDCoords() {
     return result;
 }
 
+void MainWindow::checkLEDDistances() {
+    std::vector<cv::Mat> LEDCoords = MainWindow::getLEDCoords();
+    if (LEDCoords.empty()) {
+        return;
+    }
+    cv::Mat topCoords = LEDCoords[0].reshape(1,3); // left top
+    // std::cout << "Top: " << topCoords << std::endl;
+    cv::Mat leftCoords = LEDCoords[1].reshape(1,3); // left bot
+    // std::cout << "Left: " << leftCoords << std::endl;
+    cv::Mat rightCoords = LEDCoords[2].reshape(1,3);
+    // std::cout << "Right: " << rightCoords << std::endl;
+
+    double horizontalDistance = cv::norm(rightCoords - topCoords);
+    double verticalDistance = cv::norm(topCoords - leftCoords);
+    double actualHorizontalDistance = 690;
+    double actualVerticalDistance = 405;
+    
+    double horizontalError = std::abs(horizontalDistance - actualHorizontalDistance);
+    double verticalError = std::abs(verticalDistance - actualVerticalDistance);
+
+    qDebug() << "Measured horizontal distance: " << horizontalDistance << " mm, absolute error: " << horizontalError << " mm, relative error: " << horizontalError / actualHorizontalDistance * 100 << " %";
+    qDebug() << "Measured vertical distance: " << verticalDistance << " mm, absolute error: " << verticalError << " mm, relative error: " << verticalError / actualVerticalDistance * 100 << " %";
+    
+}
+
 void MainWindow::sphericalCalibration() {
 
     if(P1.empty() || P2.empty()) {
@@ -894,18 +946,13 @@ void MainWindow::sphericalCalibration() {
 
     cv::Mat xDir = (rightCoords - leftCoords) / cv::norm(rightCoords - leftCoords);
     cv::Mat yDir = (topCoords - rightCoords) / cv::norm(topCoords - rightCoords);
+    // DEBUG: print angle between x and y
     cv::Mat zDir = xDir.cross(yDir);
 
-    try
-    {
-        sphericalOrigin = rightCoords + displacementRightLEDToOrigin;
+   
+    sphericalOrigin = rightCoords + displacementRightLEDToOrigin; // DEBUG: print this
 
-    }
-    catch (...)
-    {
-        qDebug() << "Error in spherical origin determination";
-    }
-
+    
     rotationMatrix = (cv::Mat_<double>(3,3) <<
                           xDir.at<double>(0,0), xDir.at<double>(1,0), xDir.at<double>(2,0),
                       yDir.at<double>(0,0), yDir.at<double>(1,0), yDir.at<double>(2,0),
@@ -915,7 +962,7 @@ void MainWindow::sphericalCalibration() {
     qDebug() << "Successfully completed spherical calibration";
 }
 
-void MainWindow::sphericalTest() {
+void MainWindow::sphericalTest() { // can try to test by pointing at one of the markers 
     if (sphericalOrigin.empty() || rotationMatrix.empty()) {
         qCritical() << "Spherical calibration must be done first";
         return;
@@ -1708,8 +1755,8 @@ void MainWindow::processSingleImage(const cv::Mat &originalFrame, cv::Mat &outpu
             }
         }
 
-        if (hsvEnabled && motionEnabled) {
-            ApplyMotionThresholdConsecutively(originalFrame, tmpGray1, output, backgroundImage1, thresholdValue);
+        if (hsvEnabled || bgrEnabled && motionEnabled) {
+            ApplyThresholdConsecutively(originalFrame, tmpGray1, output, backgroundImage1, thresholdValue);
         } else if (motionEnabled) {
             ApplyMotionThreshold(originalFrame, tmpGray1, output, backgroundImage1, thresholdValue);
         }
