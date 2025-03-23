@@ -122,6 +122,9 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
 
     updateSavedCameraCalibrationFilesComboBox();
 
+    sweepData = nlohmann::json::object();
+    sweepData["sweep"] = nlohmann::json::array();
+
 
 }
 
@@ -633,8 +636,9 @@ void MainWindow::receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv
 
                         // Convert from homogeneous coordinates (4×1) to Euclidean (3×1)
                         cv::Mat point3D = points4D.rowRange(0,3) / points4D.at<double>(3,0);
-                        //motorCameraCalibrationCurrentCentroid = point3D;
-                        std::cout << "Triangulated 3D Point: " << point3D << std::endl;
+                        cv::Point3f point3f = cv::Point3f(point3D.at<double>(0), point3D.at<double>(1), point3D.at<double>(2));
+                        motorCameraCalibrationCurrentCentroid = point3f;
+                        std::cout << "Triangulated 3D Point Thresholded: " << point3f.x << point3f.y << point3f.z << std::endl;
 
                     } else {
                         qDebug() << "Projection matrices are empty, cannot triangulate.";
@@ -667,7 +671,7 @@ void MainWindow::receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv
     } else if (processingType == "BD") {
         setBDValues();
         motorCameraCalibrationCurrentCentroid = processImageCentroid(originalFrame1, originalFrame2, false);
-        qDebug() << "Centroid in receive and process frames: "<< motorCameraCalibrationCurrentCentroid.x << motorCameraCalibrationCurrentCentroid.y << motorCameraCalibrationCurrentCentroid.z ;
+        //qDebug() << "Centroid in receive and process frames: "<< motorCameraCalibrationCurrentCentroid.x << motorCameraCalibrationCurrentCentroid.y << motorCameraCalibrationCurrentCentroid.z ;
     } else {
         emit processedFramesReady(originalFrame1, originalFrame2);
     }
@@ -1228,25 +1232,36 @@ std::vector<double> MainWindow::linspace(double lower, double upper, int num_poi
     return result;
 }
 
-
-
 void MainWindow::performSweepStep() {
+    // If we've finished all azimuth positions, the sweep is complete.
     if (currentAzIndex >= azimuthCalPositions.size()) {
-        // Sweep is complete.
-        sweepTimer->stop();
-        sweepTimer->deleteLater();
-
-        // Stop camera capture after the sweep is complete.
+        // Sweep complete: stop capture, reset UI, and save the JSON file.
         stopCapture();
         processingType = "None";
         ui.setBackgroundImageButton->setEnabled(false);
         format = QImage::Format_BGR888;
-
         qDebug() << "Sweep complete. Camera capture stopped.";
+
+        // Determine file path based on radio button selection.
+        std::string filePath = "";
+        if (ui.farSweepRadioButton->isChecked()){
+            filePath = "../../MotorCameraCalibration/far_sweep.json";
+        }
+        else if (ui.nearSweepRadioButton->isChecked()){
+            filePath = "../../MotorCameraCalibration/near_sweep.json";
+        }
+        std::ofstream outFile(filePath);
+        if (outFile.is_open()) {
+            outFile << std::setw(4) << sweepData << std::endl;
+            outFile.close();
+            qDebug() << "Saved sweep data to" << QString::fromStdString(filePath);
+        } else {
+            qDebug() << "Error opening file for sweep data:" << QString::fromStdString(filePath);
+        }
         return;
     }
 
-    // Process azimuth move once per azimuth index.
+    // For a new azimuth group, move the azimuth motor once.
     if (currentAlIndex == 0) {
         double az = azimuthCalPositions[currentAzIndex];
         qDebug() << "Moving azimuth to" << az << "degrees";
@@ -1255,38 +1270,46 @@ void MainWindow::performSweepStep() {
         azimuthPosition += steps;
     }
 
-    // Process altitude moves if needed:
+    // If there are altitude positions left for the current azimuth:
     if (currentAlIndex < altitudeCalPositions.size()) {
         double al = altitudeCalPositions[currentAlIndex];
         qDebug() << "Moving altitude to" << al << "degrees";
         moveAltitudeMotor(altitudePointer, al, 0.0);
+
+        // Capture the current azimuth and altitude in local variables.
+        double localAz = azimuthCalPositions[currentAzIndex];
+        double localAl = al;
         currentAlIndex++;
 
-        // Use a one-shot timer to wait 1 second for the motor to settle,
-        // then call a slot that prints the updated centroid.
-        QTimer::singleShot(1000, this, SLOT(processMotorSettled()));
+        // Stop the main timer so it doesn't fire before our wait is over.
+        sweepTimer->stop();
+        // Wait 5 seconds for the motor to settle, then process the laser dot.
+        QTimer::singleShot(5000, this, [this, localAz, localAl]() {
+            qDebug() << "Motor settled. Processing image.";
+            auto centroid = motorCameraCalibrationCurrentCentroid;
+            qDebug() << "LASER DOT:" << centroid.x << centroid.y << centroid.z;
+
+            // Append a row [az, al, x, y, z] using the local (captured) values.
+            nlohmann::json row = { localAz, localAl, centroid.x, centroid.y, centroid.z };
+            sweepData["sweep"].push_back(row);
+
+            // Restart the main timer to continue the sweep.
+            sweepTimer->start(2000);
+        });
     } else {
-        // All altitude positions processed for the current azimuth; move to the next azimuth.
+        // Finished all altitude moves for the current azimuth; reset for the next azimuth.
         currentAlIndex = 0;
         currentAzIndex++;
     }
 }
 
-void MainWindow::processMotorSettled() {
-    qDebug() << "Motor settled. Processing image.";
-
-    // Optionally, if motorCameraCalibrationCurrentCentroid is updated from another thread,
-    // you should protect its access (for example, with a QMutex).
-    auto centroid = motorCameraCalibrationCurrentCentroid;
-    qDebug() << "LASER DOT:" << centroid.x << centroid.y << centroid.z;
-}
 
 
 
 void MainWindow::sweepLookupTable() {
     qDebug() << "Starting Motor-Camera Sweep";
 
-    processingType = "BD";
+    processingType = "Thresh";
     ui.setBackgroundImageButton->setEnabled(true);
     format = QImage::Format_Grayscale8;
 
@@ -1556,26 +1579,39 @@ void MainWindow::setBDValues() {
     } 
 
 }
-
 cv::Point3f MainWindow::processImageCentroid(const cv::Mat &originalFrame1, const cv::Mat &originalFrame2, bool timingEnabled) {
     setBDValues();
+
     if (originalFrame1.empty() || originalFrame2.empty()) {
         qDebug() << "One or both input frames are empty!";
         return cv::Point3f(-1, -1, -1);
     }
+
+    // Future to store result
+    QFuture<cv::Point3f> future;
+
     if (timingEnabled) {
-        // Use totalTimer when timing is enabled
-        QtConcurrent::run([this, originalFrame1, originalFrame2]() {
+        // Run with totalTimer and store result in future
+        future = QtConcurrent::run([this, originalFrame1, originalFrame2]() {
+            cv::Point3f point;
             totalTimer->timeVoid([&]() {
-                return processImages(originalFrame1, originalFrame2, true);
+                point = processImages(originalFrame1, originalFrame2, true);
             });
+            return point;
         });
     } else {
-        // Skip totalTimer when timing is not enabled
-        QtConcurrent::run([this, originalFrame1, originalFrame2]() {
+        // Run without timing and store result in future
+        future = QtConcurrent::run([this, originalFrame1, originalFrame2]() {
             return processImages(originalFrame1, originalFrame2, false);
         });
     }
+
+    // Wait for processImages to finish and get result
+    future.waitForFinished();
+    cv::Point3f result = future.result();
+
+    //qDebug() << "Returning from processImageCentroid:" << result.x << result.y << result.z;
+    return result;
 }
 
 cv::Point3f MainWindow::processImages(const cv::Mat &originalFrame1, const cv::Mat &originalFrame2, bool timingEnabled) {
@@ -1598,13 +1634,25 @@ cv::Point3f MainWindow::processImages(const cv::Mat &originalFrame1, const cv::M
     std::vector<cv::Point> centroids1 = FindCentroids(output1);
     std::vector<cv::Point> centroids2 = FindCentroids(output2);
 
-    if (drawEnabled && centroids1.size() == 1) DrawCentroidBinary(output1, centroids1[0]);
-    if (drawEnabled && centroids2.size() == 1) DrawCentroidBinary(output2, centroids2[0]);
+    // if (drawEnabled && centroids1.size() == 1) DrawCentroidBinary(output1, centroids1[0]);
+    // if (drawEnabled && centroids2.size() == 1) DrawCentroidBinary(output2, centroids2[0]);
+
+    if(drawEnabled){
+        for(cv::Point c : centroids1){
+            DrawCentroidBinary(output1, c);
+        }
+        for(cv::Point c : centroids2){
+            DrawCentroidBinary(output2, c);
+        }
+    }
 
     if (centroids1.size() == 1 and centroids2.size() == 1) {
         // qDebug() << "Found singular centroid in both images";
         point = handleCentroids(centroids1, centroids2);
-        qDebug() << "Centroid:" << point.x << point.y << point.z;
+        //qDebug() << "Centroid:" << point.x << point.y << point.z;
+    }
+    else if(centroids1.size()>1 or centroids2.size()>1){
+        qDebug()<< "more than 1 centroid detected";
     }
     else {
         qDebug() << "No single centroid found";

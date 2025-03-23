@@ -11,7 +11,8 @@
 #include <QMutex>
 #include <time.h>
 #include "ProcessTimer.h"
-#include "pubSysCls.h"  
+#include "pubSysCls.h"
+#include "json.hpp"
 
 
     class MainWindow : public QMainWindow {
@@ -22,8 +23,8 @@ public:
     time_t start = time(0);
     ~MainWindow();  // Destructor
 
-public slots:
-    void processMotorSettled();
+//public slots:
+    //void processMotorSettled();
 
 private slots:
     void toggleCal3DType();
@@ -101,8 +102,8 @@ private:
     void altitudeTimeTest();
     void enableAltitude();
     void disableAltitude();
-    double altitudeCalLowerLimit = 0;
-    double altitudeCalUpperLimit = 0;
+    double altitudeCalLowerLimit = 0.0;
+    double altitudeCalUpperLimit = 5.0;
     std::vector<double> altitudeCalPositions;
 
 
@@ -112,8 +113,8 @@ private:
     void enableAzimuth();
     void disableAzimuth();
     int azimuthPosition = 0;
-    double azimuthCalLowerLimit = 0;
-    double azimuthCalUpperLimit = 0;
+    double azimuthCalLowerLimit = -10.0;
+    double azimuthCalUpperLimit = 8.0;
     std::vector<double> azimuthCalPositions;
 
 
@@ -144,6 +145,9 @@ private:
 
     cv::Point3f motorCameraCalibrationCurrentCentroid = cv::Point3f(-1,-1,-1);
 
+    double lastAz = 0.0;
+    double lastAl = 0.0;
+    nlohmann::json sweepData;
 
 
 
