@@ -163,7 +163,7 @@
        <bool>true</bool>
       </property>
       <property name="currentIndex">
-       <number>2</number>
+       <number>0</number>
       </property>
       <property name="tabsClosable">
        <bool>false</bool>
@@ -261,7 +261,7 @@
               <string>HSV</string>
              </property>
              <property name="checked">
-              <bool>false</bool>
+              <bool>true</bool>
              </property>
              <attribute name="buttonGroup">
               <string notr="true">buttonGroup</string>
@@ -390,7 +390,7 @@
               <number>255</number>
              </property>
              <property name="value">
-              <number>0</number>
+              <number>100</number>
              </property>
             </widget>
            </item>
@@ -424,7 +424,7 @@
               <number>255</number>
              </property>
              <property name="value">
-              <number>200</number>
+              <number>100</number>
              </property>
             </widget>
            </item>
@@ -434,7 +434,7 @@
               <number>255</number>
              </property>
              <property name="value">
-              <number>255</number>
+              <number>80</number>
              </property>
             </widget>
            </item>
@@ -493,7 +493,7 @@
               <number>255</number>
              </property>
              <property name="value">
-              <number>0</number>
+              <number>10</number>
              </property>
              <property name="displayIntegerBase">
               <number>10</number>
@@ -506,7 +506,7 @@
               <string>BGR</string>
              </property>
              <property name="checked">
-              <bool>true</bool>
+              <bool>false</bool>
              </property>
              <attribute name="buttonGroup">
               <string notr="true">buttonGroup</string>
@@ -1478,7 +1478,7 @@ This will automatically move calculate the transfer matrix between the encoder c
      <x>0</x>
      <y>0</y>
      <width>1641</width>
-     <height>25</height>
+     <height>24</height>
     </rect>
    </property>
   </widget>
@@ -1498,8 +1498,8 @@ This will automatically move calculate the transfer matrix between the encoder c
  <resources/>
  <connections/>
  <buttongroups>
+  <buttongroup name="buttonGroup"/>
   <buttongroup name="selectCal3DTypeButtonGroup"/>
   <buttongroup name="showProcessingButtonGroup"/>
-  <buttongroup name="buttonGroup"/>
  </buttongroups>
 </ui>

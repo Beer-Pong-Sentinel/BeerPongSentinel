@@ -198,13 +198,25 @@ void ApplyMorphClosing(cv::Mat& input, cv::Mat& kernel) {
 }
 
 cv::Point2f ComputeCentroid(const cv::Mat& input) {
-    cv::Moments m = cv::moments(input, true);
+    int sumX = 0, sumY = 0, count = 0;
 
-    if (m.m00 == 0) {
-        return cv::Point2f(-1, -1);  // No foreground pixels found
+    // Use a pointer-based approach for speed
+    for (int y = 0; y < input.rows; ++y) {
+        const uchar* rowPtr = input.ptr<uchar>(y);
+        for (int x = 0; x < input.cols; ++x) {
+            if (rowPtr[x] > 0) {  // White pixel (assuming binary image)
+                sumX += x;
+                sumY += y;
+                count++;
+            }
+        }
     }
 
-    return cv::Point2f(m.m10 / m.m00, m.m01 / m.m00);
+    if (count == 0) {
+        return cv::Point2f(-1, -1);  // No white pixels found
+    }
+
+    return cv::Point2f(static_cast<float>(sumX) / count, static_cast<float>(sumY) / count);
 }
 
 void DrawCentroidBinary(cv::Mat& image, const cv::Point2f& centroid, int radius, cv::Scalar color, int thickness) {

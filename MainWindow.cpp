@@ -43,7 +43,7 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
 
     // Configure the serial port (modify these settings as necessary for your device)
 
-    serialPort->setPortName("COM4");
+    serialPort->setPortName("COM9");
 
     if (!serialPort->open(QIODevice::ReadWrite)) {
         qDebug() << "Error: Failed to open serial port" << serialPort->portName();
@@ -1973,13 +1973,16 @@ cv::Point3f MainWindow::processImages(const cv::Mat &originalFrame1, const cv::M
     futureOutput2.waitForFinished();
 
     // Find centroids in the thresholded images
-    std::vector<cv::Point> centroids1 = FindCentroids(output1);
-    std::vector<cv::Point> centroids2 = FindCentroids(output2);
+    std::vector<cv::Point> centroids1, centroids2;
+    if (centroidEnabled) {
+        centroids1.push_back(ComputeCentroid(output1));
+        centroids2.push_back(ComputeCentroid(output2));
+    }
 
     // if (drawEnabled && centroids1.size() == 1) DrawCentroidBinary(output1, centroids1[0]);
     // if (drawEnabled && centroids2.size() == 1) DrawCentroidBinary(output2, centroids2[0]);
 
-    if(drawEnabled){
+    if(centroidEnabled && drawEnabled){
         for(cv::Point c : centroids1){
             DrawCentroidBinary(output1, c);
         }
