@@ -152,7 +152,10 @@ private:
     void performSweepStep();
     void calculateLookupTable();
 
+    QMutex centroidMutex;
     cv::Point3f motorCameraCalibrationCurrentCentroid = cv::Point3f(-1,-1,-1);
+    void updateCentroid(const cv::Point3f& newCentroid);
+    cv::Point3f getCentroid();
 
     void calculateInterpolatedLookupTable(int newAzCount, int newAlCount);
 

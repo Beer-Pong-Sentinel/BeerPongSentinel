@@ -652,7 +652,7 @@ void MainWindow::receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv
                         // Convert from homogeneous coordinates (4×1) to Euclidean (3×1)
                         cv::Mat point3D = points4D.rowRange(0,3) / points4D.at<double>(3,0);
                         cv::Point3f point3f = cv::Point3f(point3D.at<double>(0), point3D.at<double>(1), point3D.at<double>(2));
-                        motorCameraCalibrationCurrentCentroid = point3f;
+                        updateCentroid(point3f);
                         std::cout << "Triangulated 3D Point Thresholded: " << point3f.x <<" "<< point3f.y<< " " << point3f.z << std::endl;
 
                     } else {
@@ -685,8 +685,8 @@ void MainWindow::receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv
         emit processedFramesReady(thresholdedImage1, thresholdedImage2);
     } else if (processingType == "BD") {
         setBDValues();
-        motorCameraCalibrationCurrentCentroid = processImageCentroid(originalFrame1, originalFrame2, false);
-        qDebug() << "Centroid in receive and process frames: "<< motorCameraCalibrationCurrentCentroid.x << motorCameraCalibrationCurrentCentroid.y << motorCameraCalibrationCurrentCentroid.z ;
+        updateCentroid(processImageCentroid(originalFrame1, originalFrame2, false));
+        //qDebug() << "Centroid in receive and process frames: "<< motorCameraCalibrationCurrentCentroid.x << motorCameraCalibrationCurrentCentroid.y << motorCameraCalibrationCurrentCentroid.z ;
     } else {
         emit processedFramesReady(originalFrame1, originalFrame2);
     }
@@ -1750,9 +1750,10 @@ std::pair<double, double> MainWindow::findFiringAngle(double x, double y, double
 
 void MainWindow::aimAtCentroid(){
     // Get the current centroid.
-    double x = motorCameraCalibrationCurrentCentroid.x;
-    double y = motorCameraCalibrationCurrentCentroid.y;
-    double z = motorCameraCalibrationCurrentCentroid.z;
+    cv::Point3f point = getCentroid();
+    double x = point.x;
+    double y = point.y;
+    double z = point.z;
 
     // Compute desired firing angles.
     std::pair<double, double> bestAngles = findFiringAngle(x, y, z);
@@ -2113,4 +2114,15 @@ cv::Point3f MainWindow::handleCentroids(const std::vector<cv::Point> &centroids1
             return cv::Point3f(-1, -1, -1);
         }
     }
+    return cv::Point3f(-1, -1, -1);
+}
+
+void MainWindow::updateCentroid(const cv::Point3f& newCentroid) {
+    QMutexLocker locker(&centroidMutex);
+    motorCameraCalibrationCurrentCentroid = newCentroid;
+}
+
+cv::Point3f MainWindow::getCentroid() {
+    QMutexLocker locker(&centroidMutex);
+    return motorCameraCalibrationCurrentCentroid;  // Safe copy
 }
