@@ -124,6 +124,9 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
     });
 
     connect(ui.aimButton, &QPushButton::clicked, this, &MainWindow::aimAtCentroid);
+    connect(ui.startContinuousAimButton, &QPushButton::clicked, this, &MainWindow::aimContinuous);
+    connect(ui.stopContinuousAimButton, &QPushButton::clicked, this, &MainWindow::stopContinuousAim);
+
 
 
 
@@ -1766,6 +1769,27 @@ void MainWindow::aimAtCentroid(){
         qDebug() << "Moving altitude motor to" << bestAngles.second << "degrees.";
         moveAltitudeMotor(altitudePointer, bestAngles.second, 5.0);
     });
+}
+
+// In MainWindow.cpp, add:
+void MainWindow::aimContinuous(){
+    // Create the timer if it hasn't been created yet.
+    if (!continuousAimTimer) {
+        continuousAimTimer = new QTimer(this);
+        // Connect the timer's timeout signal to aimAtCentroid slot.
+        connect(continuousAimTimer, &QTimer::timeout, this, &MainWindow::aimAtCentroid);
+    }
+    // Start the timer with a 1000 ms (1 second) interval.
+    continuousAimTimer->start(100);
+    qDebug() << "Continuous aiming started.";
+}
+
+void MainWindow::stopContinuousAim(){
+    // Stop the timer if it's running.
+    if (continuousAimTimer && continuousAimTimer->isActive()){
+        continuousAimTimer->stop();
+        qDebug() << "Continuous aiming stopped.";
+    }
 }
 
 

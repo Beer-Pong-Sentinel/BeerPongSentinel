@@ -157,6 +157,10 @@ private:
     void calculateInterpolatedLookupTable(int newAzCount, int newAlCount);
 
     std::vector<LookupEntry> interpolatedLookupTable;
+    QTimer* continuousAimTimer = nullptr;
+
+    void aimContinuous();
+    void stopContinuousAim();
 
     void aimAtCentroid();
 
