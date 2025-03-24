@@ -43,7 +43,7 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
 
     // Configure the serial port (modify these settings as necessary for your device)
 
-    serialPort->setPortName("COM9");
+    serialPort->setPortName("COM4");
 
     if (!serialPort->open(QIODevice::ReadWrite)) {
         qDebug() << "Error: Failed to open serial port" << serialPort->portName();
@@ -120,7 +120,7 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
     connect(ui.calculateLookupTableButton, &QPushButton::clicked, this, &MainWindow::calculateLookupTable);
 
     connect(ui.interpLookupTableButton, &QPushButton::clicked, this, [this]() {
-        calculateInterpolatedLookupTable(6, 6);
+        calculateInterpolatedLookupTable(40, 40);
     });
 
     connect(ui.aimButton, &QPushButton::clicked, this, &MainWindow::aimAtCentroid);
@@ -683,7 +683,7 @@ void MainWindow::receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv
     } else if (processingType == "BD") {
         setBDValues();
         motorCameraCalibrationCurrentCentroid = processImageCentroid(originalFrame1, originalFrame2, false);
-        //qDebug() << "Centroid in receive and process frames: "<< motorCameraCalibrationCurrentCentroid.x << motorCameraCalibrationCurrentCentroid.y << motorCameraCalibrationCurrentCentroid.z ;
+        qDebug() << "Centroid in receive and process frames: "<< motorCameraCalibrationCurrentCentroid.x << motorCameraCalibrationCurrentCentroid.y << motorCameraCalibrationCurrentCentroid.z ;
     } else {
         emit processedFramesReady(originalFrame1, originalFrame2);
     }
@@ -1238,7 +1238,7 @@ void MainWindow::moveAlLimit()
 {
     double altitudeLimit = ui.altitudeLimitSpinbox->value();
     qDebug() << "moving altitude to " <<altitudeLimit << "degrees";
-    moveAltitudeMotor(altitudePointer, altitudeLimit, 0.0);
+    moveAltitudeMotor(altitudePointer, altitudeLimit, 1.0);
     QThread::msleep(250);
 
 }
@@ -1330,7 +1330,7 @@ void MainWindow::performSweepStep() {
     if (currentAlIndex < altitudeCalPositions.size()) {
         double al = altitudeCalPositions[currentAlIndex];
         qDebug() << "Moving altitude to" << al << "degrees";
-        moveAltitudeMotor(altitudePointer, al, 0.0);
+        moveAltitudeMotor(altitudePointer, al, 1.0);
 
         // Capture the current azimuth and altitude in local variables.
         double localAz = azimuthCalPositions[currentAzIndex];
@@ -1340,7 +1340,7 @@ void MainWindow::performSweepStep() {
         // Stop the main timer so it doesn't fire before our wait is over.
         sweepTimer->stop();
         // Wait 5 seconds for the motor to settle, then process the laser dot.
-        QTimer::singleShot(5000, this, [this, localAz, localAl]() {
+        QTimer::singleShot(1000, this, [this, localAz, localAl]() {
             qDebug() << "Motor settled. Processing image.";
             auto centroid = motorCameraCalibrationCurrentCentroid;
             qDebug() << "LASER DOT:" << centroid.x << centroid.y << centroid.z;
@@ -1764,7 +1764,7 @@ void MainWindow::aimAtCentroid(){
     // Use a short delay to allow the azimuth move to start/completed before moving altitude.
     QTimer::singleShot(200, this, [this, bestAngles]() {
         qDebug() << "Moving altitude motor to" << bestAngles.second << "degrees.";
-        moveAltitudeMotor(altitudePointer, bestAngles.second, 0.0);
+        moveAltitudeMotor(altitudePointer, bestAngles.second, 5.0);
     });
 }
 
