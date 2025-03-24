@@ -15,6 +15,14 @@
 #include "json.hpp"
 
 
+struct LookupEntry {
+    double az;      // azimuth angle
+    double al;      // altitude angle
+    double xo, yo, zo; // near point (origin of the line)
+    double ux, uy, uz; // unit direction vector (points from near to far)
+};
+
+
     class MainWindow : public QMainWindow {
     Q_OBJECT
 
@@ -146,9 +154,18 @@ private:
 
     cv::Point3f motorCameraCalibrationCurrentCentroid = cv::Point3f(-1,-1,-1);
 
+    void calculateInterpolatedLookupTable(int newAzCount, int newAlCount);
+
+    std::vector<LookupEntry> interpolatedLookupTable;
+
+    void aimAtCentroid();
+
     double lastAz = 0.0;
     double lastAl = 0.0;
     nlohmann::json sweepData;
+
+    std::pair<double, double> findFiringAngle(double x, double y, double z);
+
 
 
 

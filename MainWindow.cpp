@@ -43,7 +43,7 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
 
     // Configure the serial port (modify these settings as necessary for your device)
 
-    serialPort->setPortName("COM9");
+    serialPort->setPortName("COM4");
 
     if (!serialPort->open(QIODevice::ReadWrite)) {
         qDebug() << "Error: Failed to open serial port" << serialPort->portName();
@@ -115,6 +115,15 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
 
     connect(ui.farSweepRadioButton, &QRadioButton::toggled, this, &MainWindow::toggleNearFarSweep);
     connect(ui.nearSweepRadioButton, &QRadioButton::toggled, this, &MainWindow::toggleNearFarSweep);
+
+
+    connect(ui.calculateLookupTableButton, &QPushButton::clicked, this, &MainWindow::calculateLookupTable);
+
+    connect(ui.interpLookupTableButton, &QPushButton::clicked, this, [this]() {
+        calculateInterpolatedLookupTable(6, 6);
+    });
+
+    connect(ui.aimButton, &QPushButton::clicked, this, &MainWindow::aimAtCentroid);
 
 
 
@@ -641,7 +650,7 @@ void MainWindow::receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv
                         cv::Mat point3D = points4D.rowRange(0,3) / points4D.at<double>(3,0);
                         cv::Point3f point3f = cv::Point3f(point3D.at<double>(0), point3D.at<double>(1), point3D.at<double>(2));
                         motorCameraCalibrationCurrentCentroid = point3f;
-                        std::cout << "Triangulated 3D Point Thresholded: " << point3f.x << point3f.y << point3f.z << std::endl;
+                        std::cout << "Triangulated 3D Point Thresholded: " << point3f.x <<" "<< point3f.y<< " " << point3f.z << std::endl;
 
                     } else {
                         qDebug() << "Projection matrices are empty, cannot triangulate.";
@@ -815,7 +824,7 @@ std::vector<cv::Point> MainWindow::reorderCentroids(const std::vector<cv::Point>
     cv::Point top_centroid = remaining_centroids[0];
     cv::Point left_centroid = remaining_centroids[1];
     if (remaining_centroids[0].y > remaining_centroids[1].y) {
-        std::swap(top_centroid, right_centroid);
+        std::swap(top_centroid, left_centroid);
     }
 
     // Step 4: Create the reordered list
@@ -910,8 +919,8 @@ void MainWindow::checkLEDDistances() {
 
     double horizontalDistance = cv::norm(rightCoords - topCoords);
     double verticalDistance = cv::norm(topCoords - leftCoords);
-    double actualHorizontalDistance = 690;
-    double actualVerticalDistance = 405;
+    double actualHorizontalDistance = 690; //749
+    double actualVerticalDistance = 405; //440
     
     double horizontalError = std::abs(horizontalDistance - actualHorizontalDistance);
     double verticalError = std::abs(verticalDistance - actualVerticalDistance);
@@ -1392,8 +1401,8 @@ void MainWindow::sweepLookupTable() {
 
 void MainWindow::calculateLookupTable() {
     // Open the far and near JSON files
-    std::ifstream farFile("far_sweep_data.json");
-    std::ifstream nearFile("near_sweep_data.json");
+    std::ifstream farFile("../../MotorCameraCalibration/far_sweep.json");
+    std::ifstream nearFile("../../MotorCameraCalibration/near_sweep.json");
 
     if (!farFile.is_open() || !nearFile.is_open()) {
         qDebug() << "Error: Could not open one of the JSON files.";
@@ -1461,7 +1470,7 @@ void MainWindow::calculateLookupTable() {
     }
 
     // Write the lookup table to "lookuptable.json"
-    std::ofstream outFile("lookuptable.json");
+    std::ofstream outFile("../../MotorCameraCalibration/lookuptable.json");
     if (!outFile.is_open()) {
         qDebug() << "Error: Could not open lookuptable.json for writing.";
         return;
@@ -1471,7 +1480,293 @@ void MainWindow::calculateLookupTable() {
 
     qDebug() << "Lookup table successfully calculated and saved to lookuptable.json";
 }
+#include <limits>
+#include <fstream>
+#include <iostream>
+#include <vector>
+#include <set>
+#include <array>
+#include <algorithm>
+#include <cmath>
+#include <iomanip>
+#include "json.hpp"  // nlohmann::json
+#include "mainwindow.h"
 
+// Helper function: Bilinear interpolation
+double bilinearInterpolate(double x, double y,
+                           double x1, double x2, double y1, double y2,
+                           double Q11, double Q21, double Q12, double Q22)
+{
+    double denom = (x2 - x1) * (y2 - y1);
+    if (std::abs(denom) < 1e-8) {
+        return Q11; // Fallback if cell is degenerate.
+    }
+    double term1 = Q11 * (x2 - x) * (y2 - y);
+    double term2 = Q21 * (x - x1) * (y2 - y);
+    double term3 = Q12 * (x2 - x) * (y - y1);
+    double term4 = Q22 * (x - x1) * (y - y1);
+    return (term1 + term2 + term3 + term4) / denom;
+}
+
+void MainWindow::calculateInterpolatedLookupTable(int newAzCount, int newAlCount)
+{
+    // 1. Read the raw lookup table JSON file.
+    std::ifstream inFile("../../MotorCameraCalibration/lookuptable.json");
+    if (!inFile.is_open()) {
+        qDebug() << "Error: Could not open lookuptable.json";
+        return;
+    }
+    nlohmann::json rawJson;
+    try {
+        inFile >> rawJson;
+    } catch (const std::exception &e) {
+        qDebug() << "Error parsing JSON:" << e.what();
+        return;
+    }
+    inFile.close();
+
+    // Expect the file to contain a key "lookuptable" with an array of rows.
+    auto rawTable = rawJson["lookuptable"];
+    size_t totalPoints = rawTable.size();
+    if (totalPoints == 0) {
+        qDebug() << "Error: Lookup table is empty.";
+        return;
+    }
+
+    // 2. Extract the raw data and determine unique azimuth and altitude values.
+    // Each row is assumed to be: [az, al, xo, yo, zo, ux, uy, uz]
+    std::vector<std::vector<double>> rawData; // each inner vector will have 8 values.
+    std::set<double> azSet, alSet;
+    for (auto& row : rawTable) {
+        std::vector<double> v;
+        for (int i = 0; i < 8; i++) {
+            v.push_back(row[i]);
+        }
+        rawData.push_back(v);
+        azSet.insert(v[0]); // azimuth value
+        alSet.insert(v[1]); // altitude value
+    }
+    // Create sorted vectors.
+    std::vector<double> uniqueAz(azSet.begin(), azSet.end());
+    std::vector<double> uniqueAl(alSet.begin(), alSet.end());
+    size_t origAzCount = uniqueAz.size();
+    size_t origAlCount = uniqueAl.size();
+
+    // Optional: warn if the number of raw points doesn't match a regular grid.
+    if (totalPoints != origAzCount * origAlCount) {
+        qDebug() << "Warning: The raw lookup table does not form a regular grid.";
+    }
+
+    // 3. Arrange the 6 data columns (near point and unit vector) into a 2D grid.
+    // We'll index grid[i][j] where i corresponds to uniqueAz and j to uniqueAl.
+    // Each grid element is an array of 6 doubles: {xo, yo, zo, ux, uy, uz}.
+    std::vector<std::vector<std::array<double, 6>>> grid(
+        origAzCount, std::vector<std::array<double, 6>>(origAlCount));
+    // For each raw row, find its position in the grid.
+    for (const auto& row : rawData) {
+        double az = row[0];
+        double al = row[1];
+        auto itAz = std::find(uniqueAz.begin(), uniqueAz.end(), az);
+        auto itAl = std::find(uniqueAl.begin(), uniqueAl.end(), al);
+        if (itAz == uniqueAz.end() || itAl == uniqueAl.end())
+            continue;
+        size_t i = std::distance(uniqueAz.begin(), itAz);
+        size_t j = std::distance(uniqueAl.begin(), itAl);
+        grid[i][j] = { row[2], row[3], row[4], row[5], row[6], row[7] };
+    }
+
+    // 4. Determine the min/max for azimuth and altitude.
+    double azMin = uniqueAz.front();
+    double azMax = uniqueAz.back();
+    double alMin = uniqueAl.front();
+    double alMax = uniqueAl.back();
+
+    // 5. Create new uniformly spaced arrays for azimuth and altitude.
+    std::vector<double> newAz(newAzCount);
+    std::vector<double> newAl(newAlCount);
+    for (int i = 0; i < newAzCount; i++) {
+        newAz[i] = azMin + i * (azMax - azMin) / (newAzCount - 1);
+    }
+    for (int j = 0; j < newAlCount; j++) {
+        newAl[j] = alMin + j * (alMax - alMin) / (newAlCount - 1);
+    }
+
+    // 6. Interpolate the 6 values for each new grid point using bilinear interpolation.
+    // The new lookup table will have rows of the form:
+    // [az, al, xo, yo, zo, ux, uy, uz]
+    nlohmann::json interpJson;
+    interpJson["lookuptable"] = nlohmann::json::array();
+
+    // Also, create a local vector to hold the new lookup table entries.
+    std::vector<LookupEntry> newLookupTable;
+    newLookupTable.reserve(newAzCount * newAlCount);
+
+    // For each new azimuth and altitude point:
+    for (int i_new = 0; i_new < newAzCount; i_new++) {
+        for (int j_new = 0; j_new < newAlCount; j_new++) {
+            double az_query = newAz[i_new];
+            double al_query = newAl[j_new];
+
+            // Find the bounding indices in the original grid.
+            size_t i_low = 0;
+            while (i_low < uniqueAz.size() - 1 && uniqueAz[i_low + 1] <= az_query)
+                i_low++;
+            size_t i_high = (i_low < uniqueAz.size() - 1) ? i_low + 1 : i_low;
+
+            size_t j_low = 0;
+            while (j_low < uniqueAl.size() - 1 && uniqueAl[j_low + 1] <= al_query)
+                j_low++;
+            size_t j_high = (j_low < uniqueAl.size() - 1) ? j_low + 1 : j_low;
+
+            // If the query lies exactly on a grid point, use that data directly.
+            if (std::abs(uniqueAz[i_low] - az_query) < 1e-8 &&
+                std::abs(uniqueAl[j_low] - al_query) < 1e-8) {
+                std::array<double, 6> interpValues = grid[i_low][j_low];
+                nlohmann::json row = { az_query, al_query,
+                                      interpValues[0], interpValues[1], interpValues[2],
+                                      interpValues[3], interpValues[4], interpValues[5] };
+                interpJson["lookuptable"].push_back(row);
+
+                // Save the lookup entry.
+                LookupEntry entry;
+                entry.az = az_query;
+                entry.al = al_query;
+                entry.xo = interpValues[0];
+                entry.yo = interpValues[1];
+                entry.zo = interpValues[2];
+                entry.ux = interpValues[3];
+                entry.uy = interpValues[4];
+                entry.uz = interpValues[5];
+                newLookupTable.push_back(entry);
+                continue;
+            }
+
+            // Otherwise, perform bilinear interpolation for each component.
+            double x1 = uniqueAz[i_low], x2 = uniqueAz[i_high];
+            double y1 = uniqueAl[j_low], y2 = uniqueAl[j_high];
+
+            std::array<double, 6> interpVals;
+            for (int k = 0; k < 6; k++) {
+                double Q11 = grid[i_low][j_low][k];
+                double Q21 = grid[i_high][j_low][k];
+                double Q12 = grid[i_low][j_high][k];
+                double Q22 = grid[i_high][j_high][k];
+                interpVals[k] = bilinearInterpolate(az_query, al_query,
+                                                    x1, x2, y1, y2,
+                                                    Q11, Q21, Q12, Q22);
+            }
+
+            nlohmann::json newRow = { az_query, al_query,
+                                     interpVals[0], interpVals[1], interpVals[2],
+                                     interpVals[3], interpVals[4], interpVals[5] };
+            interpJson["lookuptable"].push_back(newRow);
+
+            // Save the lookup entry.
+            LookupEntry entry;
+            entry.az = az_query;
+            entry.al = al_query;
+            entry.xo = interpVals[0];
+            entry.yo = interpVals[1];
+            entry.zo = interpVals[2];
+            entry.ux = interpVals[3];
+            entry.uy = interpVals[4];
+            entry.uz = interpVals[5];
+            newLookupTable.push_back(entry);
+        }
+    }
+
+    // 7. Save the interpolated lookup table to a new JSON file.
+    std::ofstream outFile("../../MotorCameraCalibration/interpolated_lookuptable.json");
+    if (!outFile.is_open()) {
+        qDebug() << "Error: Could not open file for writing interpolated lookup table.";
+        return;
+    }
+    outFile << std::setw(4) << interpJson;
+    outFile.close();
+
+    // 8. Save the new lookup table to the class variable.
+    this->interpolatedLookupTable = newLookupTable;
+
+    qDebug() << "Interpolated lookup table successfully saved to interpolated_lookuptable.json";
+}
+
+
+#include <limits>
+#include <utility>  // for std::pair
+#include <vector>
+#include <algorithm> // for std::min and std::max
+
+// Assume LookupEntry is defined as follows:
+// struct LookupEntry {
+//     double az;  // azimuth angle
+//     double al;  // altitude angle
+//     double xo, yo, zo; // near point (origin of the line)
+//     double ux, uy, uz; // unit direction vector (points from near to far)
+// };
+// And that MainWindow has a member variable:
+// std::vector<LookupEntry> interpolatedLookupTable;
+
+std::pair<double, double> MainWindow::findFiringAngle(double x, double y, double z) {
+    double minDistSq = std::numeric_limits<double>::max();
+    double bestAz = 0.0;
+    double bestAl = 0.0;
+
+    // Iterate over all entries in the interpolated lookup table.
+    for (const auto& entry : interpolatedLookupTable) {
+        // Compute the vector from the near point (A) to the given point (P)
+        double vx = x - entry.xo;
+        double vy = y - entry.yo;
+        double vz = z - entry.zo;
+
+        // Dot product of (P-A) with the unit direction vector d
+        double dot = vx * entry.ux + vy * entry.uy + vz * entry.uz;
+
+        // Squared norm of (P-A)
+        double vNormSq = vx * vx + vy * vy + vz * vz;
+
+        // Squared perpendicular (normal) distance from the point to the line.
+        double distSq = vNormSq - dot * dot;
+
+        // Update best match if this distance is smaller than the current minimum.
+        if (distSq < minDistSq) {
+            minDistSq = distSq;
+            bestAz = entry.az;
+            bestAl = entry.al;
+        }
+    }
+
+    // Clamp the angles to the safe limits:
+    // Azimuth must be between -15.0 and +15.0 degrees.
+    // Altitude must be between 0.0 and +15.0 degrees.
+    bestAz = std::max(-15.0, std::min(bestAz, 15.0));
+    bestAl = std::max(0.0, std::min(bestAl, 15.0));
+
+    return { bestAz, bestAl };
+}
+
+
+void MainWindow::aimAtCentroid(){
+    // Get the current centroid.
+    double x = motorCameraCalibrationCurrentCentroid.x;
+    double y = motorCameraCalibrationCurrentCentroid.y;
+    double z = motorCameraCalibrationCurrentCentroid.z;
+
+    // Compute desired firing angles.
+    std::pair<double, double> bestAngles = findFiringAngle(x, y, z);
+    qDebug() << "Best az:" << bestAngles.first << "best al:" << bestAngles.second;
+
+    // Calculate required steps for the azimuth motor.
+    int azSteps = static_cast<int>(bestAngles.first / 0.45) - azimuthPosition;
+    qDebug() << "Moving azimuth motor by" << azSteps << "steps.";
+    sendSerialMessage(QString::number(azSteps));
+    azimuthPosition += azSteps;  // Update current azimuth position.
+
+    // Use a short delay to allow the azimuth move to start/completed before moving altitude.
+    QTimer::singleShot(200, this, [this, bestAngles]() {
+        qDebug() << "Moving altitude motor to" << bestAngles.second << "degrees.";
+        moveAltitudeMotor(altitudePointer, bestAngles.second, 0.0);
+    });
+}
 
 
 
