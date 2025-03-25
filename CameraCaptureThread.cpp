@@ -157,6 +157,7 @@ void CameraCaptureThread::run() {
 
     while (running) {
         try {
+            // Fetch the latest available images
             Spinnaker::ImagePtr image1 = camera1->GetNextImage();
             Spinnaker::ImagePtr image2 = camera2->GetNextImage();
 
@@ -169,27 +170,34 @@ void CameraCaptureThread::run() {
             cv::Mat matFrame1(image1->GetHeight(), image1->GetWidth(), CV_8UC3, image1->GetData());
             cv::Mat matFrame2(image2->GetHeight(), image2->GetWidth(), CV_8UC3, image2->GetData());
 
+            // Clone frame (ensure deep copy)
             cv::Mat tempFrame1 = matFrame1.clone();
             cv::Mat tempFrame2 = matFrame2.clone();
 
-            if (!processingFrame.exchange(true)) {  // If processing is not happening, update the frame
-                {
-                    QMutexLocker locker(&frameMutex);
-                    frame1 = tempFrame1;
-                    frame2 = tempFrame2;
-                }
-                emit newFrameReady(frame1, frame2);
+            {
+                // Lock and replace the most recent frame
+                QMutexLocker locker(&frameMutex);
+                frame1 = tempFrame1;
+                frame2 = tempFrame2;
+                timestamp = image1->GetTimeStamp() / 1000.0;
             }
-            processingFrame = false;  // Reset the flag
 
+            // Emit signal that new frame is available
+            emit newFrameReady(frame1, frame2, timestamp);
+
+            // Release images
             image1->Release();
             image2->Release();
+
+            // Small sleep to avoid excessive CPU usage
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
         } catch (Spinnaker::Exception &e) {
             qDebug() << "Spinnaker error:" << e.what();
         }
     }
 }
+
 
 void CameraCaptureThread::stopCapture() {
     if (!running) return;  // Prevent duplicate stop attempts

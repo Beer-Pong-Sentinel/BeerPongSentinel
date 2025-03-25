@@ -163,7 +163,7 @@
        <bool>true</bool>
       </property>
       <property name="currentIndex">
-       <number>2</number>
+       <number>0</number>
       </property>
       <property name="tabsClosable">
        <bool>false</bool>
@@ -225,15 +225,54 @@
            <string>Processing</string>
           </property>
           <layout class="QGridLayout" name="gridLayout">
-           <item row="2" column="3">
-            <widget class="QCheckBox" name="processingBGSubShowTrajectoryCheckBox">
+           <item row="3" column="0">
+            <widget class="QRadioButton" name="showProcessingBallDetectionRadioButton">
              <property name="text">
-              <string>Predicted trajectory</string>
+              <string>Ball detection</string>
              </property>
+             <property name="checked">
+              <bool>true</bool>
+             </property>
+             <attribute name="buttonGroup">
+              <string notr="true">showProcessingButtonGroup</string>
+             </attribute>
             </widget>
            </item>
-           <item row="2" column="1">
-            <widget class="QSpinBox" name="processingBGSubThresholdSpinBox"/>
+           <item row="3" column="4">
+            <widget class="QRadioButton" name="processingBGREnabled">
+             <property name="text">
+              <string>BGR</string>
+             </property>
+             <property name="checked">
+              <bool>false</bool>
+             </property>
+             <attribute name="buttonGroup">
+              <string notr="true">buttonGroup</string>
+             </attribute>
+            </widget>
+           </item>
+           <item row="1" column="0">
+            <widget class="QRadioButton" name="showProcessingThresholdingRadioButton">
+             <property name="text">
+              <string>LED threshold</string>
+             </property>
+             <property name="checked">
+              <bool>false</bool>
+             </property>
+             <attribute name="buttonGroup">
+              <string notr="true">showProcessingButtonGroup</string>
+             </attribute>
+            </widget>
+           </item>
+           <item row="3" column="1">
+            <widget class="QSpinBox" name="processingHMax">
+             <property name="maximum">
+              <number>255</number>
+             </property>
+             <property name="value">
+              <number>80</number>
+             </property>
+            </widget>
            </item>
            <item row="9" column="4">
             <widget class="QCheckBox" name="processingDrawCentroidEnabled">
@@ -245,13 +284,13 @@
              </property>
             </widget>
            </item>
-           <item row="1" column="1">
-            <widget class="QSpinBox" name="processingThresholdingThresholdSpinBox">
+           <item row="6" column="2">
+            <widget class="QSpinBox" name="processingSMin">
              <property name="maximum">
               <number>255</number>
              </property>
              <property name="value">
-              <number>45</number>
+              <number>100</number>
              </property>
             </widget>
            </item>
@@ -268,99 +307,13 @@
              </attribute>
             </widget>
            </item>
-           <item row="2" column="2">
-            <widget class="QCheckBox" name="processingBGSubShowCentroidsCheckBox">
-             <property name="text">
-              <string>Centroids</string>
-             </property>
-            </widget>
-           </item>
-           <item row="7" column="1">
-            <widget class="QSpinBox" name="processingBDThresholdSpinBox">
+           <item row="1" column="1">
+            <widget class="QSpinBox" name="processingThresholdingThresholdSpinBox">
              <property name="maximum">
               <number>255</number>
              </property>
              <property name="value">
-              <number>70</number>
-             </property>
-            </widget>
-           </item>
-           <item row="3" column="3">
-            <widget class="QSpinBox" name="processingVMax">
-             <property name="maximum">
-              <number>255</number>
-             </property>
-             <property name="value">
-              <number>255</number>
-             </property>
-            </widget>
-           </item>
-           <item row="3" column="0">
-            <widget class="QRadioButton" name="showProcessingBallDetectionRadioButton">
-             <property name="text">
-              <string>Ball detection</string>
-             </property>
-             <property name="checked">
-              <bool>true</bool>
-             </property>
-             <attribute name="buttonGroup">
-              <string notr="true">showProcessingButtonGroup</string>
-             </attribute>
-            </widget>
-           </item>
-           <item row="9" column="3">
-            <widget class="QCheckBox" name="processingCentroidEnabled">
-             <property name="text">
-              <string>Centroid</string>
-             </property>
-             <property name="checked">
-              <bool>true</bool>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="0">
-            <widget class="QRadioButton" name="showProcessingThresholdingRadioButton">
-             <property name="text">
-              <string>LED threshold</string>
-             </property>
-             <property name="checked">
-              <bool>false</bool>
-             </property>
-             <attribute name="buttonGroup">
-              <string notr="true">showProcessingButtonGroup</string>
-             </attribute>
-            </widget>
-           </item>
-           <item row="1" column="3">
-            <widget class="QPushButton" name="testSetFirstPosButton">
-             <property name="enabled">
-              <bool>false</bool>
-             </property>
-             <property name="text">
-              <string>Set 1st Pos</string>
-             </property>
-             <property name="checkable">
-              <bool>false</bool>
-             </property>
-            </widget>
-           </item>
-           <item row="7" column="4">
-            <widget class="QCheckBox" name="processingMotionEnabled">
-             <property name="text">
-              <string>Motion</string>
-             </property>
-             <property name="checked">
-              <bool>false</bool>
-             </property>
-            </widget>
-           </item>
-           <item row="8" column="1">
-            <widget class="QSpinBox" name="processingMorphKernelSize">
-             <property name="minimum">
-              <number>1</number>
-             </property>
-             <property name="value">
-              <number>5</number>
+              <number>45</number>
              </property>
             </widget>
            </item>
@@ -374,48 +327,14 @@
              </property>
             </widget>
            </item>
-           <item row="3" column="2">
-            <widget class="QSpinBox" name="processingSMax">
-             <property name="maximum">
-              <number>255</number>
-             </property>
-             <property name="value">
-              <number>255</number>
-             </property>
-            </widget>
-           </item>
-           <item row="6" column="2">
-            <widget class="QSpinBox" name="processingSMin">
-             <property name="maximum">
-              <number>255</number>
-             </property>
-             <property name="value">
-              <number>100</number>
-             </property>
-            </widget>
-           </item>
-           <item row="10" column="0">
-            <widget class="QPushButton" name="setProcessingButton">
+           <item row="2" column="0">
+            <widget class="QRadioButton" name="showProcessingBGSubRadioButton">
              <property name="text">
-              <string>Set</string>
+              <string>Background subtraction</string>
              </property>
-            </widget>
-           </item>
-           <item row="2" column="2">
-            <widget class="QCheckBox" name="processingBGSubShowCentroidsCheckBox">
-             <property name="text">
-              <string>Centroids</string>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="4">
-            <widget class="QPushButton" name="testSetSecondPosButton">
-             <property name="enabled">
-              <bool>false</bool>
-             </property>
-             <property name="text">
-              <string>Set 2nd Pos</string>
-             </property>
+             <attribute name="buttonGroup">
+              <string notr="true">showProcessingButtonGroup</string>
+             </attribute>
             </widget>
            </item>
            <item row="6" column="3">
@@ -428,13 +347,119 @@
              </property>
             </widget>
            </item>
-           <item row="3" column="1">
-            <widget class="QSpinBox" name="processingHMax">
+           <item row="3" column="3">
+            <widget class="QSpinBox" name="processingVMax">
              <property name="maximum">
               <number>255</number>
              </property>
              <property name="value">
-              <number>80</number>
+              <number>255</number>
+             </property>
+            </widget>
+           </item>
+           <item row="6" column="1">
+            <widget class="QSpinBox" name="processingHMin">
+             <property name="maximum">
+              <number>255</number>
+             </property>
+             <property name="value">
+              <number>10</number>
+             </property>
+             <property name="displayIntegerBase">
+              <number>10</number>
+             </property>
+            </widget>
+           </item>
+           <item row="7" column="1">
+            <widget class="QSpinBox" name="processingBDThresholdSpinBox">
+             <property name="maximum">
+              <number>255</number>
+             </property>
+             <property name="value">
+              <number>70</number>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="0">
+            <widget class="QRadioButton" name="showProcessingNoneRadioButton">
+             <property name="text">
+              <string>None</string>
+             </property>
+             <property name="checked">
+              <bool>false</bool>
+             </property>
+             <attribute name="buttonGroup">
+              <string notr="true">showProcessingButtonGroup</string>
+             </attribute>
+            </widget>
+           </item>
+           <item row="1" column="4">
+            <widget class="QPushButton" name="testSetSecondPosButton">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+             <property name="text">
+              <string>Set 2nd Pos</string>
+             </property>
+            </widget>
+           </item>
+           <item row="7" column="4">
+            <widget class="QCheckBox" name="processingMotionEnabled">
+             <property name="text">
+              <string>Motion</string>
+             </property>
+             <property name="checked">
+              <bool>false</bool>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="1">
+            <widget class="QSpinBox" name="processingBGSubThresholdSpinBox"/>
+           </item>
+           <item row="2" column="3">
+            <widget class="QCheckBox" name="processingBGSubShowTrajectoryCheckBox"/>
+           </item>
+           <item row="9" column="3">
+            <widget class="QCheckBox" name="processingCentroidEnabled">
+             <property name="text">
+              <string>Centroid</string>
+             </property>
+             <property name="checked">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="2">
+            <widget class="QCheckBox" name="processingBGSubShowCentroidsCheckBox">
+             <property name="text">
+              <string>Centroids</string>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="2">
+            <widget class="QSpinBox" name="processingSMax">
+             <property name="maximum">
+              <number>255</number>
+             </property>
+             <property name="value">
+              <number>255</number>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="1">
+            <widget class="QSpinBox" name="processingBGSubThresholdSpinBox"/>
+           </item>
+           <item row="2" column="2">
+            <widget class="QCheckBox" name="processingBGSubShowCentroidsCheckBox">
+             <property name="text">
+              <string>Centroids</string>
+             </property>
+            </widget>
+           </item>
+           <item row="10" column="0">
+            <widget class="QPushButton" name="setProcessingButton">
+             <property name="text">
+              <string>Set</string>
              </property>
             </widget>
            </item>
@@ -458,59 +483,34 @@
              </property>
             </widget>
            </item>
-           <item row="2" column="3">
-            <widget class="QCheckBox" name="processingBGSubShowTrajectoryCheckBox"/>
-           </item>
-           <item row="2" column="1">
-            <widget class="QSpinBox" name="processingBGSubThresholdSpinBox"/>
-           </item>
-           <item row="0" column="0">
-            <widget class="QRadioButton" name="showProcessingNoneRadioButton">
-             <property name="text">
-              <string>None</string>
-             </property>
-             <property name="checked">
-              <bool>false</bool>
-             </property>
-             <attribute name="buttonGroup">
-              <string notr="true">showProcessingButtonGroup</string>
-             </attribute>
-            </widget>
-           </item>
-           <item row="2" column="0">
-            <widget class="QRadioButton" name="showProcessingBGSubRadioButton">
-             <property name="text">
-              <string>Background subtraction</string>
-             </property>
-             <attribute name="buttonGroup">
-              <string notr="true">showProcessingButtonGroup</string>
-             </attribute>
-            </widget>
-           </item>
-           <item row="6" column="1">
-            <widget class="QSpinBox" name="processingHMin">
-             <property name="maximum">
-              <number>255</number>
+           <item row="8" column="1">
+            <widget class="QSpinBox" name="processingMorphKernelSize">
+             <property name="minimum">
+              <number>1</number>
              </property>
              <property name="value">
-              <number>10</number>
-             </property>
-             <property name="displayIntegerBase">
-              <number>10</number>
+              <number>5</number>
              </property>
             </widget>
            </item>
-           <item row="3" column="4">
-            <widget class="QRadioButton" name="processingBGREnabled">
-             <property name="text">
-              <string>BGR</string>
-             </property>
-             <property name="checked">
+           <item row="1" column="3">
+            <widget class="QPushButton" name="testSetFirstPosButton">
+             <property name="enabled">
               <bool>false</bool>
              </property>
-             <attribute name="buttonGroup">
-              <string notr="true">buttonGroup</string>
-             </attribute>
+             <property name="text">
+              <string>Set 1st Pos</string>
+             </property>
+             <property name="checkable">
+              <bool>false</bool>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="3">
+            <widget class="QCheckBox" name="processingBGSubShowTrajectoryCheckBox">
+             <property name="text">
+              <string>Predicted trajectory</string>
+             </property>
             </widget>
            </item>
           </layout>
@@ -679,20 +679,27 @@
              <string>Trajectory Prediction</string>
             </property>
             <layout class="QGridLayout" name="gridLayout_10">
-             <item row="1" column="0">
+             <item row="0" column="0">
+              <widget class="QLabel" name="label_25">
+               <property name="text">
+                <string>Number of frames for prediction:</string>
+               </property>
+               <property name="wordWrap">
+                <bool>true</bool>
+               </property>
+              </widget>
+             </item>
+             <item row="3" column="0">
               <widget class="QPushButton" name="pushButton_8">
                <property name="text">
                 <string>Start</string>
                </property>
               </widget>
              </item>
-             <item row="1" column="1">
-              <widget class="QPushButton" name="pushButton_9">
-               <property name="enabled">
-                <bool>false</bool>
-               </property>
+             <item row="2" column="0">
+              <widget class="QPushButton" name="startCentroidPushButton">
                <property name="text">
-                <string>Stop</string>
+                <string>Start Centroid Capture</string>
                </property>
               </widget>
              </item>
@@ -703,13 +710,27 @@
                </property>
               </widget>
              </item>
-             <item row="0" column="0">
-              <widget class="QLabel" name="label_25">
+             <item row="2" column="1">
+              <widget class="QPushButton" name="saveCentroidPushButton">
                <property name="text">
-                <string>Number of frames for prediction:</string>
+                <string>Save Centroids</string>
                </property>
-               <property name="wordWrap">
-                <bool>true</bool>
+              </widget>
+             </item>
+             <item row="3" column="1">
+              <widget class="QPushButton" name="pushButton_9">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="text">
+                <string>Stop</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="0" colspan="2">
+              <widget class="QLineEdit" name="centroidLineEdit">
+               <property name="text">
+                <string>filename</string>
                </property>
               </widget>
              </item>
@@ -1492,7 +1513,7 @@ This will automatically move calculate the transfer matrix between the encoder c
      <x>0</x>
      <y>0</y>
      <width>1676</width>
-     <height>25</height>
+     <height>24</height>
     </rect>
    </property>
   </widget>
@@ -1513,7 +1534,7 @@ This will automatically move calculate the transfer matrix between the encoder c
  <connections/>
  <buttongroups>
   <buttongroup name="buttonGroup"/>
-  <buttongroup name="showProcessingButtonGroup"/>
   <buttongroup name="selectCal3DTypeButtonGroup"/>
+  <buttongroup name="showProcessingButtonGroup"/>
  </buttongroups>
 </ui>

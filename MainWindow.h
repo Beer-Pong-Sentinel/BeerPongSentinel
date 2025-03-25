@@ -22,6 +22,14 @@ struct LookupEntry {
     double ux, uy, uz; // unit direction vector (points from near to far)
 };
 
+struct CentroidData {
+    double x;
+    double y;
+    double z;
+    double timestamp;
+};
+
+void to_json(nlohmann::json& j, const CentroidData& data);
 
     class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -49,7 +57,7 @@ private slots:
     void startCapture();
     void setProcesseing();
     void setBackgroundImage();
-    void receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv::Mat &originalFrame2);
+    void receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv::Mat &originalFrame2, double timestamp);
     void indicateCameraCalibrationComplete();
     void setupCaptureThreadConnections();
     void onProcessedFramesReady(const cv::Mat &processedFrame1, const cv::Mat &processedFrame2);
@@ -154,7 +162,7 @@ private:
 
     QMutex centroidMutex;
     cv::Point3f motorCameraCalibrationCurrentCentroid = cv::Point3f(-1,-1,-1);
-    void updateCentroid(const cv::Point3f& newCentroid);
+    void updateCentroid(const cv::Point3f& newCentroid, double timestamp);
     cv::Point3f getCentroid();
 
     void calculateInterpolatedLookupTable(int newAzCount, int newAlCount);
@@ -197,7 +205,18 @@ private:
     cv::Point3f processImageCentroid(const cv::Mat &originalFrame1, const cv::Mat &originalFrame2, bool timingEnabled);
     cv::Point3f processImages(const cv::Mat &originalFrame1, const cv::Mat &originalFrame2, bool timingEnabled);
     void processSingleImage(const cv::Mat &originalFrame, cv::Mat &output, bool timingEnabled);
-    cv::Point3f handleCentroids(const std::vector<cv::Point> &centroids1, const std::vector<cv::Point> &centroids2);
+    cv::Point3f handleCentroids(const cv::Point2f &centroid1, const cv::Point2f &centroid2);
+    std::vector<CentroidData> centroidData;
+    void saveCentroidListToJson();
+    bool capturingCentroids = false;
+    void toggleCaptureCentroid();
+       
+    bool isRecording = false;               // Flag to track recording state
+    cv::VideoWriter videoWriter;            // OpenCV video writer
+    QMutex recordingMutex;                   // Mutex for thread safety
+    void toggleVideoRecording();
+    QString videoSavePath;
+    double videoFPS = 30.0;
 };
 
 #endif // MAINWINDOW_H

@@ -26,7 +26,7 @@ public:
     cv::Mat getFrame2();
 
 signals:
-    void newFrameReady(const cv::Mat &frame1, const cv::Mat &frame2);
+    void newFrameReady(const cv::Mat &frame1, const cv::Mat &frame2, double timestamp);
     void stoppedCapture();
 
 private:
@@ -40,6 +40,7 @@ private:
     mutable QMutex frameMutex;  // Mutex to protect frame access
     cv::Mat frame1;  // Latest frame from camera 1
     cv::Mat frame2;  // Latest frame from camera 2
+    double timestamp; // timestamp of frame 1 in ms
 };
 
 #endif // CAMERACAPTURETHREAD_H

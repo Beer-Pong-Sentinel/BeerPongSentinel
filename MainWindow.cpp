@@ -127,6 +127,9 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
     connect(ui.startContinuousAimButton, &QPushButton::clicked, this, &MainWindow::aimContinuous);
     connect(ui.stopContinuousAimButton, &QPushButton::clicked, this, &MainWindow::stopContinuousAim);
 
+    connect(ui.startCentroidPushButton, &QPushButton::clicked, this, &MainWindow::toggleCaptureCentroid);
+    connect(ui.saveCentroidPushButton, &QPushButton::clicked, this, &MainWindow::saveCentroidListToJson);
+
 
 
 
@@ -580,7 +583,7 @@ void MainWindow::saveProcessedFrames() {
 
 // THIS IS WHERE THE FRAME PROCESSING HAPPENS!!!!!!
 
-void MainWindow::receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv::Mat &originalFrame2) {
+void MainWindow::receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv::Mat &originalFrame2, double timestamp) {
 
 
     if (processingType == "None") {
@@ -625,7 +628,7 @@ void MainWindow::receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv
         if (ui.processingThresholdingShowCentroidsCheckBox->isChecked() &&
             difftime(time(0), MainWindow::start)) {
 
-            QtConcurrent::run([this, thresholdedImage1, thresholdedImage2]() {
+            QtConcurrent::run([this, thresholdedImage1, thresholdedImage2, timestamp]() {
                 // Throttle processing
                 MainWindow::start = time(0);
 
@@ -652,7 +655,7 @@ void MainWindow::receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv
                         // Convert from homogeneous coordinates (4×1) to Euclidean (3×1)
                         cv::Mat point3D = points4D.rowRange(0,3) / points4D.at<double>(3,0);
                         cv::Point3f point3f = cv::Point3f(point3D.at<double>(0), point3D.at<double>(1), point3D.at<double>(2));
-                        updateCentroid(point3f);
+                        updateCentroid(point3f, timestamp);
                         std::cout << "Triangulated 3D Point Thresholded: " << point3f.x <<" "<< point3f.y<< " " << point3f.z << std::endl;
 
                     } else {
@@ -685,7 +688,7 @@ void MainWindow::receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv
         emit processedFramesReady(thresholdedImage1, thresholdedImage2);
     } else if (processingType == "BD") {
         setBDValues();
-        updateCentroid(processImageCentroid(originalFrame1, originalFrame2, false));
+        updateCentroid(processImageCentroid(originalFrame1, originalFrame2, false), timestamp);
         //qDebug() << "Centroid in receive and process frames: "<< motorCameraCalibrationCurrentCentroid.x << motorCameraCalibrationCurrentCentroid.y << motorCameraCalibrationCurrentCentroid.z ;
     } else {
         emit processedFramesReady(originalFrame1, originalFrame2);
@@ -1982,7 +1985,8 @@ cv::Point3f MainWindow::processImageCentroid(const cv::Mat &originalFrame1, cons
 }
 
 cv::Point3f MainWindow::processImages(const cv::Mat &originalFrame1, const cv::Mat &originalFrame2, bool timingEnabled) {
-    cv::Point3f point = cv::Point3f(-1, -1, -1);
+    cv::Point3f point = cv::Point3f(-1, -1, -1);  // Default to invalid point
+
     // Process image 1
     QFuture<void> futureOutput1 = QtConcurrent::run([&]() {
         processSingleImage(originalFrame1, output1, timingEnabled);
@@ -1998,39 +2002,43 @@ cv::Point3f MainWindow::processImages(const cv::Mat &originalFrame1, const cv::M
     futureOutput2.waitForFinished();
 
     // Find centroids in the thresholded images
-    std::vector<cv::Point> centroids1, centroids2;
+    cv::Point2f centroid1 = cv::Point2f(-1, -1), centroid2 = cv::Point2f(-1, -1);
     if (centroidEnabled) {
-        centroids1.push_back(ComputeCentroid(output1));
-        centroids2.push_back(ComputeCentroid(output2));
+        centroid1 = ComputeCentroid(output1);
+        centroid2 = ComputeCentroid(output2);
     }
 
-    // if (drawEnabled && centroids1.size() == 1) DrawCentroidBinary(output1, centroids1[0]);
-    // if (drawEnabled && centroids2.size() == 1) DrawCentroidBinary(output2, centroids2[0]);
-
-    if(centroidEnabled && drawEnabled){
-        for(cv::Point c : centroids1){
-            DrawCentroidBinary(output1, c);
-        }
-        for(cv::Point c : centroids2){
-            DrawCentroidBinary(output2, c);
-        }
-    }
-
-    if (centroids1.size() == 1 and centroids2.size() == 1) {
-        // qDebug() << "Found singular centroid in both images";
-        point = handleCentroids(centroids1, centroids2);
-        //qDebug() << "Centroid:" << point.x << point.y << point.z;
-    }
-    else if(centroids1.size()>1 or centroids2.size()>1){
-        qDebug()<< "more than 1 centroid detected";
+    // Special handling if either centroid is invalid (-1, -1)
+    if (centroid1 == cv::Point2f(-1, -1) || centroid2 == cv::Point2f(-1, -1)) {
+        // if (centroid1 == cv::Point2f(-1, -1) && centroid2 == cv::Point2f(-1, -1)) {
+        //     qDebug() << "No centroids detected in either image";
+        // } else {
+        //     qDebug() << "Only one valid centroid detected";
+        // }
     }
     else {
-        qDebug() << "No single centroid found";
-    }
+         // If centroids are enabled and valid, draw the centroids
+        if (centroidEnabled && drawEnabled) {
+            if (centroid1 != cv::Point2f(-1, -1)) {
+                DrawCentroidBinary(output1, centroid1);
+            }
+            if (centroid2 != cv::Point2f(-1, -1)) {
+                DrawCentroidBinary(output2, centroid2);
+            }
+        }
 
+        // Handle centroids if both are valid
+        if (centroid1 != cv::Point2f(-1, -1) && centroid2 != cv::Point2f(-1, -1)) {
+            // Both centroids are valid
+            point = handleCentroids(centroid1, centroid2);
+        } 
+    }
+   
+    // Store the processed frames for further use
     processedFrame1 = output1.clone();
     processedFrame2 = output2.clone();  
     emit processedFramesReady(processedFrame1, processedFrame2);
+
     return point;
 }
 
@@ -2090,39 +2098,70 @@ void MainWindow::processSingleImage(const cv::Mat &originalFrame, cv::Mat &outpu
     }
 }
 
-cv::Point3f MainWindow::handleCentroids(const std::vector<cv::Point> &centroids1, const std::vector<cv::Point> &centroids2) {
-    if (centroids1.empty() || centroids2.empty()) {
-        qDebug() << "No centroids found";
+cv::Point3f MainWindow::handleCentroids(const cv::Point2f &centroid1, const cv::Point2f &centroid2) {
+    // Perform triangulation here if both centroids are valid
+    if (!P1.empty() && !P2.empty()) {
+        // Prepare the points for triangulation
+        cv::Mat pts1 = (cv::Mat_<double>(2, 1) << static_cast<double>(centroid1.x), static_cast<double>(centroid1.y));
+        cv::Mat pts2 = (cv::Mat_<double>(2, 1) << static_cast<double>(centroid2.x), static_cast<double>(centroid2.y));
+
+        cv::Mat points4D;
+        cv::triangulatePoints(P1, P2, pts1, pts2, points4D);
+
+        // Convert from homogeneous coordinates (4x1) to Euclidean (3x1)
+        cv::Mat point3D = points4D.rowRange(0, 3) / points4D.at<double>(3, 0);
+
+        // Return the triangulated 3D point
+        return cv::Point3f(point3D.at<double>(0), point3D.at<double>(1), point3D.at<double>(2));
+    } else {
+        qDebug() << "Projection matrices are empty, cannot triangulate.";
         return cv::Point3f(-1, -1, -1);
     }
-    // Case 2: Exactly one centroid in each image: triangulate
-    else if (centroids1.size() == 1 && centroids2.size() == 1) {
-        if (!P1.empty() && !P2.empty()) {
-            // Perform triangulation here
-            cv::Mat pts1 = (cv::Mat_<double>(2,1) << static_cast<double>(centroids1[0].x), static_cast<double>(centroids1[0].y));
-            cv::Mat pts2 = (cv::Mat_<double>(2,1) << static_cast<double>(centroids2[0].x), static_cast<double>(centroids2[0].y));
-
-            cv::Mat points4D;
-            cv::triangulatePoints(P1, P2, pts1, pts2, points4D);
-
-            // Convert from homogeneous coordinates (4×1) to Euclidean (3×1)
-            cv::Mat point3D = points4D.rowRange(0, 3) / points4D.at<double>(3, 0);
-            // std::cout << "Triangulated 3D Point: " << point3D << std::endl;
-            return cv::Point3f(point3D.at<double>(0), point3D.at<double>(1), point3D.at<double>(2));
-        } else {
-            qDebug() << "Projection matrices are empty, cannot triangulate.";
-            return cv::Point3f(-1, -1, -1);
-        }
-    }
-    return cv::Point3f(-1, -1, -1);
 }
 
-void MainWindow::updateCentroid(const cv::Point3f& newCentroid) {
+void MainWindow::updateCentroid(const cv::Point3f& newCentroid, double timestamp) {
+    if (newCentroid == cv::Point3f(-1,-1,-1)) return;
     QMutexLocker locker(&centroidMutex);
     motorCameraCalibrationCurrentCentroid = newCentroid;
+    if (capturingCentroids) {
+        CentroidData data = {newCentroid.x, newCentroid.y, newCentroid.z, timestamp};
+        centroidData.push_back(data);
+    }
 }
 
 cv::Point3f MainWindow::getCentroid() {
     QMutexLocker locker(&centroidMutex);
     return motorCameraCalibrationCurrentCentroid;  // Safe copy
+}
+
+void MainWindow::saveCentroidListToJson() {
+    // Convert the vector to a JSON object
+    QString filename = "../../CentroidData/" + ui.centroidLineEdit->text().trimmed() + ".json";
+    nlohmann::json jsonData = centroidData;
+
+    // Open the file and write the JSON data
+    std::ofstream file(filename.toStdString());
+    if (file.is_open()) {
+        file << jsonData.dump(4);  // Pretty print with indentation of 4 spaces
+        file.close();
+        qDebug() << "Saved centroid data to " << filename;
+    } else {
+        qDebug() << "Error opening file for saving centroids.";
+    }
+    centroidData.clear();
+}
+
+void MainWindow::toggleCaptureCentroid() {
+    capturingCentroids = !capturingCentroids;
+    qDebug() << "Centroid capture set to " << capturingCentroids;
+    if (capturingCentroids) {
+        ui.startCentroidPushButton->setText("Stop Centroid Capture");
+    } else {
+        ui.startCentroidPushButton->setText("Start Centroid Capture");
+    }
+}
+
+
+void to_json(nlohmann::json& j, const CentroidData& data) {
+    j = nlohmann::json{{"x", data.x}, {"y", data.y}, {"z", data.z}, {"timestamp", data.timestamp}};
 }
