@@ -690,9 +690,9 @@
               </widget>
              </item>
              <item row="3" column="0">
-              <widget class="QPushButton" name="pushButton_8">
+              <widget class="QPushButton" name="startPredictionPushButton">
                <property name="text">
-                <string>Start</string>
+                <string>Start Prediction</string>
                </property>
               </widget>
              </item>
@@ -718,12 +718,12 @@
               </widget>
              </item>
              <item row="3" column="1">
-              <widget class="QPushButton" name="pushButton_9">
+              <widget class="QPushButton" name="resetPredictionPushButton">
                <property name="enabled">
                 <bool>false</bool>
                </property>
                <property name="text">
-                <string>Stop</string>
+                <string>Reset Prediction</string>
                </property>
               </widget>
              </item>
@@ -1533,8 +1533,8 @@ This will automatically move calculate the transfer matrix between the encoder c
  <resources/>
  <connections/>
  <buttongroups>
-  <buttongroup name="buttonGroup"/>
-  <buttongroup name="selectCal3DTypeButtonGroup"/>
   <buttongroup name="showProcessingButtonGroup"/>
+  <buttongroup name="selectCal3DTypeButtonGroup"/>
+  <buttongroup name="buttonGroup"/>
  </buttongroups>
 </ui>

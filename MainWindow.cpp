@@ -26,6 +26,11 @@
 #include <sstream>
 #include <cmath>
 #include <iomanip>
+#include <Eigen/Core>
+#include <Eigen/Dense>
+#include <unsupported/Eigen/LevenbergMarquardt>
+#include <vector>
+#include <cmath>
 //#include <QmlDebuggingEnabler>
 
 using json = nlohmann::json;
@@ -130,6 +135,10 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
     connect(ui.startCentroidPushButton, &QPushButton::clicked, this, &MainWindow::toggleCaptureCentroid);
     connect(ui.saveCentroidPushButton, &QPushButton::clicked, this, &MainWindow::saveCentroidListToJson);
 
+    connect(&watcher, &QFutureWatcher<cv::Point3f>::finished, this, [this]() {
+        cv::Point3f result = future.result();
+        qDebug() << "Prediction result: " << result.x << result.y << result.z;
+    });
 
 
 
@@ -2155,6 +2164,7 @@ void MainWindow::toggleCaptureCentroid() {
     capturingCentroids = !capturingCentroids;
     qDebug() << "Centroid capture set to " << capturingCentroids;
     if (capturingCentroids) {
+        centroidData.clear();
         ui.startCentroidPushButton->setText("Stop Centroid Capture");
     } else {
         ui.startCentroidPushButton->setText("Start Centroid Capture");
@@ -2163,5 +2173,212 @@ void MainWindow::toggleCaptureCentroid() {
 
 
 void to_json(nlohmann::json& j, const CentroidData& data) {
-    j = nlohmann::json{{"x", data.x}, {"y", data.y}, {"z", data.z}, {"timestamp", data.timestamp}};
+    j = nlohmann::json{{"x", data.x}, {"y", data.y}, {"z", data.z}, {"t", data.t}};
+}
+
+void MainWindow::togglePrediction() {
+    QMutexLocker locker(&mutex);
+
+    predicting = !predicting;
+    qDebug() << "Predicting set to " << predicting;
+
+    if (predicting) {
+        centroidData.clear();
+        ui.startPredictionPushButton->setText("Stop Prediction");
+
+        // If a prediction task is already running, cancel it before starting a new one
+        if (future.isRunning()) {
+            future.cancel();
+            future.waitForFinished();
+        }
+
+        // Start the new prediction process
+        future = QtConcurrent::run(&MainWindow::runPrediction, this);
+        watcher.setFuture(future);
+
+    } else {
+        ui.startPredictionPushButton->setText("Start Prediction");
+        // Allow the process to finish naturally, but don't start new ones
+    }
+}
+
+cv::Point3f MainWindow::runPrediction() {
+    std::deque<double> x_queue, y_queue, z_queue, t_queue;
+
+    // Wait until centroidData has at least 5 elements
+    while (true) {
+        {
+            QMutexLocker locker(&mutex); // Lock before accessing centroidData
+            if (!predicting) return cv::Point3f(-1, -1, -1);
+            if (centroidData.size() >= 5) break;
+        }
+        QThread::msleep(10); // Avoid busy-waiting
+    }
+
+    double x_init, y_init, z_init, vx_init, vy_init, vz_init;
+
+    {
+        QMutexLocker locker(&mutex); // Lock to access centroidData safely
+        x_init = centroidData[0].x;
+        y_init = centroidData[0].y;
+        z_init = centroidData[0].z;
+
+        vx_init = centroidData[1].x - centroidData[0].x;
+        vy_init = centroidData[1].y - centroidData[0].y;
+        vz_init = centroidData[1].z - centroidData[0].z;
+
+        for (int i = 0; i < 5; ++i) {
+            x_queue.push_back(centroidData[i].x);
+            y_queue.push_back(centroidData[i].y);
+            z_queue.push_back(centroidData[i].z);
+            t_queue.push_back(centroidData[i].t);
+        }
+    }
+
+    std::vector<double> initial_guess = {x_init, y_init, z_init, vx_init, vy_init, vz_init};
+    int idx = 4; // Start at last initialized point
+
+    int limit = 10;
+    while (predicting && idx <= limit) {
+        {
+            QMutexLocker locker(&mutex); // Ensure safe access
+
+            // If new data is available
+            if (centroidData.size() > idx) {
+                std::vector<double> result = leastSquaresFit(t_queue, x_queue, y_queue, z_queue, initial_guess);
+                initial_guess = result;
+
+                x_queue.push_back(centroidData[idx].x);
+                y_queue.push_back(centroidData[idx].y);
+                z_queue.push_back(centroidData[idx].z);
+                t_queue.push_back(centroidData[idx].t);
+
+                x_queue.pop_front();
+                y_queue.pop_front();
+                z_queue.pop_front();
+                t_queue.pop_front();
+
+                idx++;
+            }
+        }
+
+        QThread::msleep(20); // Reduce CPU usage
+    }
+
+    return cv::Point3f(initial_guess[0], initial_guess[1], initial_guess[2]);
+}
+
+
+
+std::vector<double> MainWindow::leastSquaresFit(
+    const std::deque<double>& t_queue, 
+    const std::deque<double>& x_queue, 
+    const std::deque<double>& y_queue, 
+    const std::deque<double>& z_queue, 
+    const std::vector<double>& initial_guess
+) {
+    const double g = 9.81; // gravitational acceleration
+
+    // Convert input data to Eigen vectors
+    Eigen::VectorXd t(t_queue.size());
+    Eigen::VectorXd x_obs(x_queue.size());
+    Eigen::VectorXd y_obs(y_queue.size());
+    Eigen::VectorXd z_obs(z_queue.size());
+
+    for (size_t i = 0; i < t_queue.size(); ++i) {
+        t(i) = t_queue[i];
+        x_obs(i) = x_queue[i];
+        y_obs(i) = y_queue[i];
+        z_obs(i) = z_queue[i];
+    }
+
+    // Compute residuals function
+    auto residuals = [&](const Eigen::VectorXd& params) -> Eigen::VectorXd {
+        double x0 = params(0);
+        double y0 = params(1);
+        double z0 = params(2);
+        double vx0 = params(3);
+        double vy0 = params(4);
+        double vz0 = params(5);
+
+        Eigen::VectorXd residual(3 * t.size());
+
+        for (int i = 0; i < t.size(); ++i) {
+            // X residual
+            residual(i) = x_obs(i) - (x0 + vx0 * t(i));
+            
+            // Y residual (with gravity)
+            residual(t.size() + i) = y_obs(i) - (y0 + vy0 * t(i) - 0.5 * g * std::pow(t(i), 2));
+            
+            // Z residual
+            residual(2 * t.size() + i) = z_obs(i) - (z0 + vz0 * t(i));
+        }
+
+        return residual;
+    };
+
+    // Levenberg-Marquardt optimization
+    Eigen::VectorXd params(6);
+    for (int i = 0; i < 6; ++i) {
+        params(i) = initial_guess[i];
+    }
+
+    // Optimization parameters
+    const int max_iterations = 100;
+    const double lambda_init = 0.01;
+    const double stop_threshold = 1e-6;
+
+    double lambda = lambda_init;
+    Eigen::VectorXd best_params = params;
+    double best_error = residuals(params).squaredNorm();
+
+    for (int iter = 0; iter < max_iterations; ++iter) {
+        // Compute Jacobian
+        Eigen::MatrixXd jacobian(3 * t.size(), 6);
+        const double h = 1e-8;  // Small perturbation for numerical derivative
+
+        for (int j = 0; j < 6; ++j) {
+            Eigen::VectorXd perturbed_params = params;
+            perturbed_params(j) += h;
+
+            Eigen::VectorXd perturbed_residual = residuals(perturbed_params);
+            Eigen::VectorXd original_residual = residuals(params);
+
+            jacobian.col(j) = (perturbed_residual - original_residual) / h;
+        }
+
+        // Compute update
+        Eigen::MatrixXd JtJ = jacobian.transpose() * jacobian;
+        Eigen::VectorXd Jtr = jacobian.transpose() * residuals(params);
+
+        // Damped least squares
+        Eigen::MatrixXd A = JtJ + lambda * Eigen::MatrixXd::Identity(6, 6);
+        Eigen::VectorXd update = A.ldlt().solve(Jtr);
+
+        Eigen::VectorXd new_params = params - update;
+        double new_error = residuals(new_params).squaredNorm();
+
+        // Accept or reject update
+        if (new_error < best_error) {
+            best_params = new_params;
+            best_error = new_error;
+            params = new_params;
+            lambda /= 10.0;  // Reduce lambda
+        } else {
+            lambda *= 10.0;  // Increase lambda
+        }
+
+        // Convergence check
+        if (update.norm() < stop_threshold) {
+            break;
+        }
+    }
+
+    // Convert back to std::vector
+    std::vector<double> result(6);
+    for (int i = 0; i < 6; ++i) {
+        result[i] = best_params(i);
+    }
+
+    return result;
 }
