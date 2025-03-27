@@ -22,6 +22,9 @@ set(OPEN_CV_PATH "C:/opencv/build")
 
 # TODO: Set your Teknic SDK path here (base directory)
 set(TEKNIC_SDK_PATH "C:/Program Files (x86)/Teknic/ClearView/sdk")
+
+set(EIGEN3_INCLUDE_DIR "C:/libs/eigen/eigen-3.4.0")
+set(EIGEN3_UNSUPPORTED_DIR "C:/libs/eigen/eigen-3.4.0/unsupported")
 ########################################################################
 
 set(QT_VERSION_MAJOR 6)
@@ -89,6 +92,8 @@ endif()
 include_directories("${SPINNAKER_SDK_PATH}/include")
 include_directories("${OPEN_CV_PATH}/include")
 include_directories("${TEKNIC_SDK_PATH}/inc")
+include_directories("${EIGEN3_INCLUDE_DIR}")
+include_directories("${EIGEN3_UNSUPPORTED_DIR}")
 
 # Link directories for Spinnaker and OpenCV (if needed)
 link_directories("${SPINNAKER_SDK_PATH}/lib64/vs2015")

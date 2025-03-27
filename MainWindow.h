@@ -9,6 +9,8 @@
 #include <opencv2/opencv.hpp>
 #include <QSerialPort>
 #include <QMutex>
+#include <QFuture>
+#include <QFutureWatcher>
 #include <time.h>
 #include "ProcessTimer.h"
 #include "pubSysCls.h"
@@ -26,7 +28,7 @@ struct CentroidData {
     double x;
     double y;
     double z;
-    double timestamp;
+    double t;
 };
 
 void to_json(nlohmann::json& j, const CentroidData& data);
@@ -206,10 +208,26 @@ private:
     cv::Point3f processImages(const cv::Mat &originalFrame1, const cv::Mat &originalFrame2, bool timingEnabled);
     void processSingleImage(const cv::Mat &originalFrame, cv::Mat &output, bool timingEnabled);
     cv::Point3f handleCentroids(const cv::Point2f &centroid1, const cv::Point2f &centroid2);
-    std::vector<CentroidData> centroidData;
     void saveCentroidListToJson();
     bool capturingCentroids = false;
     void toggleCaptureCentroid();
+    
+    // Prediction
+    std::vector<CentroidData> centroidData;
+    bool predicting = false;
+    void togglePrediction();
+    QFuture<cv::Point3f> future;
+    QFutureWatcher<cv::Point3f> watcher;
+    QMutex mutex;
+    cv::Point3f runPrediction();
+    // std::deque<float> x_queue, y_queue, z_queue, t_queue;
+    std::vector<double> leastSquaresFit(
+        const std::deque<double>& t_queue,
+        const std::deque<double>& x_queue,
+        const std::deque<double>& y_queue,
+        const std::deque<double>& z_queue,
+        const std::vector<double>& initial_guess
+    );
        
     bool isRecording = false;               // Flag to track recording state
     cv::VideoWriter videoWriter;            // OpenCV video writer
