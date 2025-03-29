@@ -15,6 +15,13 @@
 #include "ProcessTimer.h"
 #include "pubSysCls.h"
 #include "json.hpp"
+#include <opencv2/core.hpp>
+#include <opencv2/cudaimgproc.hpp>
+#include <opencv2/cudafilters.hpp>
+#include <opencv2/cudabgsegm.hpp>
+#include <opencv2/core/cuda.hpp>
+#include <opencv2/dnn.hpp>
+
 
 
 struct LookupEntry {
@@ -95,7 +102,8 @@ private:
 
     //possible variants: None, thresh and bgsub
     QString  processingType="None";
-    cv::Ptr<cv::BackgroundSubtractor> backSub =  cv::createBackgroundSubtractorMOG2(100, 16, false); 
+    cv::Ptr<cv::BackgroundSubtractor> backSub =  cv::createBackgroundSubtractorMOG2(100, 16, false);
+    cv::Ptr<cv::BackgroundSubtractor> backSubCUDA =  cv::cuda::createBackgroundSubtractorMOG2(100, 16, false);
     bool performingMotorCameraCalibration = false;
     std::atomic<bool> stopMotorCameraCalibrationFlag=false;
 
@@ -183,7 +191,14 @@ private:
 
     std::pair<double, double> findFiringAngle(double x, double y, double z);
 
+    // Add a cv::dnn::Net member for the YOLO model
+    cv::dnn::Net yoloNet;
 
+    // A confidence threshold to filter weak detections (adjust as needed)
+    float confThreshold = 0.5f;
+
+    // Optionally, the input size your model expects
+    cv::Size yoloInputSize = cv::Size(640, 640);
 
 
     // for ball detection
@@ -196,6 +211,10 @@ private:
     cv::Mat output1, output2;
     cv::Mat kernel;
     cv::Mat processedFrame1, processedFrame2;
+    cv::cuda::GpuMat d_fgMask1, d_fgMask2, d_tmpGray1, d_tmpGray2;
+    cv::cuda::GpuMat d_kernel;
+    cv::Mat kernel_cpu = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(kernelSize, kernelSize));
+
 
     ProcessTimer* hsvTimer = new ProcessTimer("HSV Threshold", 200, 5000, this);
     ProcessTimer* bgrTimer = new ProcessTimer("HSV Threshold", 200, 5000, this);
@@ -211,7 +230,7 @@ private:
     void saveCentroidListToJson();
     bool capturingCentroids = false;
     void toggleCaptureCentroid();
-    
+
     // Prediction
     std::vector<CentroidData> centroidData;
     bool predicting = false;
@@ -228,7 +247,7 @@ private:
         const std::deque<double>& z_queue,
         const std::vector<double>& initial_guess
     );
-       
+
     bool isRecording = false;               // Flag to track recording state
     cv::VideoWriter videoWriter;            // OpenCV video writer
     QMutex recordingMutex;                   // Mutex for thread safety

@@ -20,8 +20,24 @@ int DrawCentroid(cv::Mat& image, cv::Point& centroid);
 // Subtract background from an image using a background subtractor model
 cv::Mat SubtractBackground(const cv::Mat& image, cv::Ptr<cv::BackgroundSubtractor> backSub, cv::Mat& fgMask, cv::Mat& tmpGray, cv::Mat& kernel);
 
+// BGSUB WITH CUDA
+cv::Mat SubtractBackgroundCUDA(const cv::Mat& image,
+                               cv::Ptr<cv::BackgroundSubtractor> d_backSub,
+                               cv::cuda::GpuMat& d_fgMask,
+                               cv::cuda::GpuMat& d_tmpGray,
+                               cv::cuda::GpuMat& d_kernel);
+
+std::pair<cv::Mat, cv::Point> getBGSubCentroid(
+    const cv::Mat& image,
+    cv::Ptr<cv::BackgroundSubtractor> d_backSub,
+    cv::cuda::GpuMat& d_fgMask,
+    cv::cuda::GpuMat& d_tmpGray,
+    cv::cuda::GpuMat& d_kernel);
+
 // Find the largest contour in a thresholded image and create an output image with only the largest contour
 cv::Mat FindLargestContours(const cv::Mat& thresholdedImage, int numContours);
+
+cv::Point FindLargestCentroid(const cv::Mat& thresholdedImage);
 
 cv::Mat ApplyThreshold(const cv::Mat& inputImage, double thresholdValue, double maxValue, int thresholdType);
 

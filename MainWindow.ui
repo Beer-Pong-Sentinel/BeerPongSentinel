@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1676</width>
+    <width>1716</width>
     <height>1093</height>
    </rect>
   </property>
@@ -23,6 +23,12 @@
    <layout class="QGridLayout" name="gridLayout_4">
     <item row="1" column="0" colspan="3">
      <widget class="QGroupBox" name="dashboardGroupBox">
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
+        <horstretch>0</horstretch>
+        <verstretch>0</verstretch>
+       </sizepolicy>
+      </property>
       <property name="title">
        <string>Dashboard</string>
       </property>
@@ -37,30 +43,10 @@
          </property>
         </widget>
        </item>
-       <item row="1" column="2">
-        <widget class="QLabel" name="label_12">
-         <property name="enabled">
-          <bool>false</bool>
-         </property>
+       <item row="0" column="4">
+        <widget class="QLabel" name="acquisitionFPSLabel">
          <property name="text">
-          <string>0 ticks</string>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="1">
-        <widget class="QLabel" name="label_13">
-         <property name="enabled">
-          <bool>false</bool>
-         </property>
-         <property name="text">
-          <string>Positioning error:</string>
-         </property>
-        </widget>
-       </item>
-       <item row="0" column="3">
-        <widget class="QLabel" name="label_8">
-         <property name="text">
-          <string>Acquisition FPS:</string>
+          <string>0.0 Hz</string>
          </property>
         </widget>
        </item>
@@ -77,20 +63,33 @@
          </property>
         </widget>
        </item>
-       <item row="0" column="4">
-        <widget class="QLabel" name="acquisitionFPSLabel">
-         <property name="text">
-          <string>0.0 Hz</string>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="0">
-        <widget class="QCheckBox" name="completedMotorCalibrationCheckBox">
+       <item row="1" column="2">
+        <widget class="QLabel" name="label_14">
          <property name="enabled">
           <bool>false</bool>
          </property>
          <property name="text">
-          <string>Motor calibration</string>
+          <string>0.00 px</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="1">
+        <widget class="QLabel" name="label_13">
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
+         <property name="text">
+          <string>Positioning error:</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="0">
+        <widget class="QCheckBox" name="completedMotorCameraCalibrationCheckBox">
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
+         <property name="text">
+          <string>Motor-Camera calibration</string>
          </property>
          <property name="checkable">
           <bool>true</bool>
@@ -107,50 +106,10 @@
          </property>
         </widget>
        </item>
-       <item row="2" column="0">
-        <widget class="QCheckBox" name="completedMotorCameraCalibrationCheckBox">
-         <property name="enabled">
-          <bool>false</bool>
-         </property>
+       <item row="0" column="3">
+        <widget class="QLabel" name="label_8">
          <property name="text">
-          <string>Motor-Camera calibration</string>
-         </property>
-         <property name="checkable">
-          <bool>true</bool>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="2">
-        <widget class="QLabel" name="label_14">
-         <property name="enabled">
-          <bool>false</bool>
-         </property>
-         <property name="text">
-          <string>0.00 px</string>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="1">
-        <widget class="QLabel" name="label_11">
-         <property name="enabled">
-          <bool>false</bool>
-         </property>
-         <property name="text">
-          <string>Encoder error:</string>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="3">
-        <widget class="QCheckBox" name="checkBox">
-         <property name="text">
-          <string>Azimuth Initialized</string>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="3">
-        <widget class="QCheckBox" name="checkBox_2">
-         <property name="text">
-          <string>Altitude Initialized</string>
+          <string>Acquisition FPS:</string>
          </property>
         </widget>
        </item>
@@ -231,7 +190,7 @@
               <string>Ball detection</string>
              </property>
              <property name="checked">
-              <bool>true</bool>
+              <bool>false</bool>
              </property>
              <attribute name="buttonGroup">
               <string notr="true">showProcessingButtonGroup</string>
@@ -386,7 +345,7 @@
               <string>None</string>
              </property>
              <property name="checked">
-              <bool>false</bool>
+              <bool>true</bool>
              </property>
              <attribute name="buttonGroup">
               <string notr="true">showProcessingButtonGroup</string>
@@ -511,6 +470,22 @@
              <property name="text">
               <string>Predicted trajectory</string>
              </property>
+            </widget>
+           </item>
+           <item row="6" column="0">
+            <widget class="QRadioButton" name="showProcessingYOLOButton">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+             <property name="text">
+              <string>YOLO</string>
+             </property>
+             <property name="checked">
+              <bool>false</bool>
+             </property>
+             <attribute name="buttonGroup">
+              <string notr="true">showProcessingButtonGroup</string>
+             </attribute>
             </widget>
            </item>
           </layout>
@@ -748,6 +723,12 @@
        <layout class="QVBoxLayout" name="verticalLayout_5" stretch="0,0,0">
         <item>
          <widget class="QLabel" name="label_3">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
           <property name="text">
            <string># Camera Calibration
 This will define the projection matrices of the cameras. Load matrices from a saved file or create new calibration.
@@ -784,6 +765,12 @@ For a new calibration take 20-30 images of the chessboard, each time in a differ
           </item>
           <item>
            <widget class="QGroupBox" name="loadCal3DFromSavedFileGroupBox">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
             <property name="maximumSize">
              <size>
               <width>16777215</width>
@@ -796,15 +783,24 @@ For a new calibration take 20-30 images of the chessboard, each time in a differ
             <layout class="QGridLayout" name="gridLayout_2">
              <item row="0" column="0">
               <widget class="QLabel" name="label_6">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
                <property name="text">
                 <string>File:</string>
                </property>
               </widget>
              </item>
-             <item row="1" column="2">
-              <widget class="QPushButton" name="calibrateCal3DFromLoadedFile">
-               <property name="text">
-                <string>Calibrate</string>
+             <item row="0" column="1">
+              <widget class="QComboBox" name="savedCal3DFilesComboBox">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
                </property>
               </widget>
              </item>
@@ -815,13 +811,10 @@ For a new calibration take 20-30 images of the chessboard, each time in a differ
                </property>
               </widget>
              </item>
-             <item row="0" column="1">
-              <widget class="QComboBox" name="savedCal3DFilesComboBox">
-               <property name="sizePolicy">
-                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-                 <horstretch>0</horstretch>
-                 <verstretch>0</verstretch>
-                </sizepolicy>
+             <item row="1" column="2">
+              <widget class="QPushButton" name="calibrateCal3DFromLoadedFile">
+               <property name="text">
+                <string>Calibrate</string>
                </property>
               </widget>
              </item>
@@ -847,25 +840,63 @@ For a new calibration take 20-30 images of the chessboard, each time in a differ
             <property name="enabled">
              <bool>false</bool>
             </property>
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
             <property name="title">
              <string>New Calibration</string>
             </property>
             <layout class="QGridLayout" name="gridLayout_3">
-             <item row="6" column="1">
-              <widget class="QPushButton" name="newCal3DSaveToFileButton">
+             <item row="6" column="0">
+              <widget class="QLabel" name="label_7">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
                <property name="text">
-                <string>Save to File</string>
+                <string>Chessboard Columns</string>
                </property>
               </widget>
              </item>
              <item row="0" column="0">
               <widget class="QLabel" name="label">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
                <property name="text">
                 <string>Name:</string>
                </property>
               </widget>
              </item>
-             <item row="4" column="1">
+             <item row="1" column="0">
+              <widget class="QPushButton" name="newCal3DStartImageCaptureButton">
+               <property name="text">
+                <string>Start Image Capture</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="1">
+              <widget class="QLineEdit" name="newCal3DNameLineEdit">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="placeholderText">
+                <string>Enter new calibration name</string>
+               </property>
+              </widget>
+             </item>
+             <item row="6" column="1">
               <widget class="QSpinBox" name="chessColumnsSpinBox">
                <property name="minimum">
                 <number>1</number>
@@ -875,73 +906,7 @@ For a new calibration take 20-30 images of the chessboard, each time in a differ
                </property>
               </widget>
              </item>
-             <item row="6" column="0">
-              <widget class="QPushButton" name="calibrateNewCal3DButton">
-               <property name="text">
-                <string>Calibrate</string>
-               </property>
-              </widget>
-             </item>
-             <item row="1" column="0">
-              <widget class="QLabel" name="label_2">
-               <property name="text">
-                <string>Saved Image Pairs:</string>
-               </property>
-              </widget>
-             </item>
-             <item row="3" column="1">
-              <widget class="QSpinBox" name="chessRowsSpinBox">
-               <property name="minimum">
-                <number>1</number>
-               </property>
-               <property name="value">
-                <number>6</number>
-               </property>
-              </widget>
-             </item>
-             <item row="0" column="2">
-              <widget class="QPushButton" name="newCal3DStartImageCaptureButton">
-               <property name="text">
-                <string>Start Image Capture</string>
-               </property>
-              </widget>
-             </item>
-             <item row="2" column="0">
-              <widget class="QPushButton" name="newCal3DSaveImagePairButton">
-               <property name="text">
-                <string>Save Image Pair</string>
-               </property>
-              </widget>
-             </item>
-             <item row="2" column="1">
-              <widget class="QPushButton" name="newCal3DStopImageCaptureButton">
-               <property name="text">
-                <string>Stop Image Capture</string>
-               </property>
-              </widget>
-             </item>
-             <item row="3" column="0">
-              <widget class="QLabel" name="label_5">
-               <property name="text">
-                <string>Chessboard Rows</string>
-               </property>
-              </widget>
-             </item>
-             <item row="1" column="1">
-              <widget class="QLabel" name="numberOfSavedImagePairsLabel">
-               <property name="text">
-                <string>0</string>
-               </property>
-              </widget>
-             </item>
-             <item row="4" column="0">
-              <widget class="QLabel" name="label_7">
-               <property name="text">
-                <string>Chessboard Columns</string>
-               </property>
-              </widget>
-             </item>
-             <item row="5" column="1">
+             <item row="8" column="1">
               <widget class="QDoubleSpinBox" name="squareSideLengthSpinBox">
                <property name="minimum">
                 <double>1.000000000000000</double>
@@ -954,17 +919,80 @@ For a new calibration take 20-30 images of the chessboard, each time in a differ
                </property>
               </widget>
              </item>
+             <item row="3" column="1">
+              <widget class="QLabel" name="numberOfSavedImagePairsLabel">
+               <property name="text">
+                <string>0</string>
+               </property>
+              </widget>
+             </item>
              <item row="5" column="0">
+              <widget class="QLabel" name="label_5">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="text">
+                <string>Chessboard Rows</string>
+               </property>
+              </widget>
+             </item>
+             <item row="8" column="0">
               <widget class="QLabel" name="label_4">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
                <property name="text">
                 <string>Square Side Length (mm)</string>
                </property>
               </widget>
              </item>
-             <item row="0" column="1">
-              <widget class="QLineEdit" name="newCal3DNameLineEdit">
-               <property name="placeholderText">
-                <string>Enter new calibration name</string>
+             <item row="9" column="1">
+              <widget class="QPushButton" name="calibrateNewCal3DButton">
+               <property name="text">
+                <string>Calibrate</string>
+               </property>
+              </widget>
+             </item>
+             <item row="3" column="0">
+              <widget class="QLabel" name="label_2">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="text">
+                <string>Saved Image Pairs:</string>
+               </property>
+              </widget>
+             </item>
+             <item row="5" column="1">
+              <widget class="QSpinBox" name="chessRowsSpinBox">
+               <property name="minimum">
+                <number>1</number>
+               </property>
+               <property name="value">
+                <number>6</number>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="1">
+              <widget class="QPushButton" name="newCal3DStopImageCaptureButton">
+               <property name="text">
+                <string>Stop Image Capture</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="0">
+              <widget class="QPushButton" name="newCal3DSaveImagePairButton">
+               <property name="text">
+                <string>Save Image Pair</string>
                </property>
               </widget>
              </item>
@@ -1014,13 +1042,26 @@ This will automatically move calculate the transfer matrix between the encoder c
             <layout class="QGridLayout" name="gridLayout_7" columnstretch="0,1,0">
              <item row="0" column="0">
               <widget class="QLabel" name="label_22">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
                <property name="text">
                 <string>File:</string>
                </property>
               </widget>
              </item>
              <item row="0" column="1">
-              <widget class="QComboBox" name="savedMoCamFilesComboBox"/>
+              <widget class="QComboBox" name="savedMoCamFilesComboBox">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+              </widget>
              </item>
              <item row="0" column="2">
               <widget class="QPushButton" name="savedMoCamFilesRefreshButton">
@@ -1059,16 +1100,6 @@ This will automatically move calculate the transfer matrix between the encoder c
              <string>New Calibration</string>
             </property>
             <layout class="QGridLayout" name="gridLayout_6">
-             <item row="0" column="1" colspan="5">
-              <widget class="QLineEdit" name="newMoCamCalLineEdit">
-               <property name="inputMask">
-                <string/>
-               </property>
-               <property name="placeholderText">
-                <string>Enter new calibration name</string>
-               </property>
-              </widget>
-             </item>
              <item row="2" column="2">
               <widget class="QPushButton" name="goToAzLimitButton">
                <property name="text">
@@ -1186,13 +1217,6 @@ This will automatically move calculate the transfer matrix between the encoder c
                </property>
               </widget>
              </item>
-             <item row="0" column="6">
-              <widget class="QPushButton" name="homeMotorsButton">
-               <property name="text">
-                <string>Home Motors</string>
-               </property>
-              </widget>
-             </item>
              <item row="3" column="4">
               <widget class="QPushButton" name="setUpperAlLimit">
                <property name="text">
@@ -1256,6 +1280,22 @@ This will automatically move calculate the transfer matrix between the encoder c
               <widget class="QPushButton" name="stopContinuousAimButton">
                <property name="text">
                 <string>Stop Continuous Aim</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="1" colspan="3">
+              <widget class="QLineEdit" name="newMoCamCalLineEdit">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="inputMask">
+                <string/>
+               </property>
+               <property name="placeholderText">
+                <string>Enter new calibration name</string>
                </property>
               </widget>
              </item>
@@ -1512,8 +1552,8 @@ This will automatically move calculate the transfer matrix between the encoder c
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1676</width>
-     <height>24</height>
+     <width>1716</width>
+     <height>25</height>
     </rect>
    </property>
   </widget>

@@ -105,9 +105,6 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
     connect(ui.enableAlButton, &QPushButton::clicked, this, &MainWindow::enableAltitude);
     connect(ui.disableAlButton, &QPushButton::clicked, this, &MainWindow::disableAltitude);
 
-    connect(ui.homeMotorsButton, &QPushButton::clicked, this, &MainWindow::homeMotors);
-
-
     connect(ui.goToAlLimitButton, &QPushButton::clicked, this, &MainWindow::moveAlLimit);
     connect(ui.goToAzLimitButton, &QPushButton::clicked, this, &MainWindow::moveAzLimit);
 
@@ -148,6 +145,25 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
 
     sweepData = nlohmann::json::object();
     sweepData["sweep"] = nlohmann::json::array();
+    d_kernel.upload(kernel_cpu);
+
+    try {
+        yoloNet = cv::dnn::readNetFromONNX("../../Models/best.onnx");
+
+        // Force GPU usage if available; otherwise, it will fall back to CPU.
+        // Uncomment the following lines if you have CUDA built into OpenCV:
+        yoloNet.setPreferableBackend(cv::dnn::DNN_BACKEND_CUDA);
+        yoloNet.setPreferableTarget(cv::dnn::DNN_TARGET_CUDA);
+
+        qDebug() << "YOLO model loaded successfully.";
+
+        // Otherwise, you can use:
+        // yoloNet.setPreferableBackend(cv::dnn::DNN_BACKEND_DEFAULT);
+        // yoloNet.setPreferableTarget(cv::dnn::DNN_TARGET_CPU);
+    } catch (const cv::Exception &e) {
+        qDebug() << "Error loading YOLO model:" << e.what();
+    }
+
 
 
 }
@@ -273,7 +289,8 @@ void MainWindow::calibrateCameraWithSelectedFile() {
         qDebug() << "Successfully loaded P1, P2, and projectionError from" << filePath;
         qDebug() << "Projection error:" << projectionError;
         indicateCameraCalibrationComplete();
-        checkLEDDistances();
+        // TODO: Fix the checkLED command crashing calibration when cameras are not capturing.
+        // checkLEDDistances();
     } catch (json::exception &e) {
         qDebug() << "JSON parsing error:" << e.what();
     }
@@ -291,7 +308,6 @@ void MainWindow::resetNewCameraCalibration() {
         ui.newCal3DStopImageCaptureButton->setEnabled(false);
         ui.newCal3DSaveImagePairButton->setEnabled(false);
         ui.calibrateNewCal3DButton->setEnabled(false);
-        ui.newCal3DSaveToFileButton->setEnabled(false);
         // ui.cancelNewCal3DButton->setEnabled(false);
         ui.selectCal3DFromSavedFile->setEnabled(true);
         ui.chessRowsSpinBox->setEnabled(false);
@@ -316,7 +332,7 @@ void MainWindow::resetNewCameraCalibration() {
 
 void MainWindow::newCameraCalibrationStartImageCapture() {
 
-    processingType="thresh";
+    //processingType="thresh";
 
     numberOfSavedImagePairs = 0;
     // Update the label with the new count
@@ -481,8 +497,7 @@ void MainWindow::calibrateCameras() {
         qDebug() << "Calibrated" << name;
     }
 
-    // Enable the "Save to File" button
-    ui.newCal3DSaveToFileButton->setEnabled(true);
+
 }
 
 void MainWindow::setupCaptureThreadConnections() {
@@ -541,7 +556,7 @@ void MainWindow::saveProcessedFrames() {
 
     // Get the latest processed frames
     cv::Mat frame1, frame2;
-    
+
     if (processingType == "None") {
         frame1 = captureThread->getFrame1().clone(); // Clone to ensure thread safety
         frame2 = captureThread->getFrame2().clone();
@@ -549,7 +564,7 @@ void MainWindow::saveProcessedFrames() {
         // If processing is enabled, try to get the latest processed frames
         frame1 = processedFrame1.clone();
         frame2 = processedFrame2.clone();
-        
+
         // Fallback to raw frames if processed frames aren't available
         if (frame1.empty() || frame2.empty()) {
             frame1 = captureThread->getFrame1().clone();
@@ -566,19 +581,19 @@ void MainWindow::saveProcessedFrames() {
     QtConcurrent::run([this, frame1, frame2]() {
         // Create a timestamp for unique filenames
         QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd_hh-mm-ss");
-        
+
         // Define directory for saving
         QString saveDir = "../../ProcessedFrames/";
         QDir().mkpath(saveDir);  // Create directory if it doesn't exist
-        
+
         // Define file paths with timestamp
         QString frame1Path = saveDir + "frame1_" + timestamp + ".jpeg";
         QString frame2Path = saveDir + "frame2_" + timestamp + ".jpeg";
-        
+
         // Save the frames
         bool frame1Saved = cv::imwrite(frame1Path.toStdString(), frame1);
         bool frame2Saved = cv::imwrite(frame2Path.toStdString(), frame2);
-        
+
         if (frame1Saved && frame2Saved) {
             qDebug() << "Saved processed frames:";
             qDebug() << "Frame 1 saved to:" << frame1Path;
@@ -587,7 +602,7 @@ void MainWindow::saveProcessedFrames() {
             qDebug() << "Error saving frames. Frame 1 saved:" << frame1Saved << ", Frame 2 saved:" << frame2Saved;
         }
     });
-    
+
 }
 
 // THIS IS WHERE THE FRAME PROCESSING HAPPENS!!!!!!
@@ -601,27 +616,57 @@ void MainWindow::receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv
             ui.cameraStreamWidget->updateFrame(originalFrame1, originalFrame2, format);
         });
     } else if (processingType == "BGSub") {
-        // Offload the processing to another thread
-        // TODO: Figure out why BG Sub is so slow.
-        QtConcurrent::run([this, originalFrame1, originalFrame2]() {
-            // QElapsedTimer taskTimer;
-            // taskTimer.start();
-            
-            // qint64 startTime1 = taskTimer.elapsed();
-            // cv::Mat bgSub1 = SubtractBackground(originalFrame1, backSub, tmp1, tmpGray1, kernel);
-            // qint64 elapsed1 = taskTimer.elapsed() - startTime1;
-            
-            // qDebug() << "Background subtraction timing:";   
-            // qDebug() << "  First frame:" << elapsed1 << "ms";
+        QtConcurrent::run([this, originalFrame1, originalFrame2, timestamp]() {
+            cv::Mat bgSub1, bgSub2;
+            cv::Point centroid1, centroid2;
+            // Measure the time for background subtraction and centroid detection
+            totalTimer->timeVoid([&]() {
+                auto result1 = getBGSubCentroid(originalFrame1, backSubCUDA, d_fgMask1, d_tmpGray1, d_kernel);
+                bgSub1 = result1.first;
+                centroid1 = result1.second;
 
-            cv::Mat bgSub1 = SubtractBackground(originalFrame1, backSub, tmp1, tmpGray1, kernel);
-            cv::Mat bgSub2 = SubtractBackground(originalFrame2, backSub, tmp2, tmpGray2, kernel);
+                auto result2 = getBGSubCentroid(originalFrame2, backSubCUDA, d_fgMask2, d_tmpGray2, d_kernel);
+                bgSub2 = result2.first;
+                centroid2 = result2.second;
+            });
 
-            // Use Qt's signal-slot mechanism to update the GUI safely
+            if (!P1.empty() && !P2.empty()) {
+
+                if (centroid1.x != -1 && centroid1.y != -1){
+                    // Triangulate the 3D point from the centroids
+                    cv::Mat pts1 = (cv::Mat_<double>(2, 1) << static_cast<double>(centroid1.x), static_cast<double>(centroid1.y));
+                    cv::Mat pts2 = (cv::Mat_<double>(2, 1) << static_cast<double>(centroid2.x), static_cast<double>(centroid2.y));
+
+                    cv::Mat points4D;
+                    cv::triangulatePoints(P1, P2, pts1, pts2, points4D);
+
+                    cv::Mat point3D = points4D.rowRange(0, 3) / points4D.at<double>(3, 0);
+                    cv::Point3f point3f(point3D.at<double>(0), point3D.at<double>(1), point3D.at<double>(2));
+                    updateCentroid(point3f, timestamp);
+                    std::cout << "Triangulated 3D Point Thresholded: " << point3f.x << " " << point3f.y << " " << point3f.z << std::endl;
+                } else {
+                    qDebug() << "no ball centroid found";
+                }
+            } else {
+                qDebug() << "Projection matrices are empty, cannot triangulate.";
+            }
+
+            // Convert the 1-channel foreground masks to 3-channel BGR images before drawing
+            if (bgSub1.channels() == 1)
+                cv::cvtColor(bgSub1, bgSub1, cv::COLOR_GRAY2BGR);
+            if (bgSub2.channels() == 1)
+                cv::cvtColor(bgSub2, bgSub2, cv::COLOR_GRAY2BGR);
+
+            // Draw centroids in red if valid (red in BGR is (0,0,255))
+            if (centroid1.x != -1 && centroid1.y != -1) {
+                cv::circle(bgSub1, centroid1, 5, cv::Scalar(0, 0, 255), -1);
+            }
+            if (centroid2.x != -1 && centroid2.y != -1) {
+                cv::circle(bgSub2, centroid2, 5, cv::Scalar(0, 0, 255), -1);
+            }
+            // Emit the processed frames to update the UI
             emit processedFramesReady(bgSub1, bgSub2);
         });
-
-
     }else if(processingType=="Thresh"){
 
         //qDebug() << "In Thresh";
@@ -697,9 +742,76 @@ void MainWindow::receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv
         emit processedFramesReady(thresholdedImage1, thresholdedImage2);
     } else if (processingType == "BD") {
         setBDValues();
-        updateCentroid(processImageCentroid(originalFrame1, originalFrame2, false), timestamp);
+        updateCentroid(processImageCentroid(originalFrame1, originalFrame2, true), timestamp);
         //qDebug() << "Centroid in receive and process frames: "<< motorCameraCalibrationCurrentCentroid.x << motorCameraCalibrationCurrentCentroid.y << motorCameraCalibrationCurrentCentroid.z ;
-    } else {
+    }
+    else if (processingType =="YOLO"){
+
+        // HAVEN'T TESTED THIS YET!!!!!
+
+        // Process both frames using YOLO; here we'll show for originalFrame1 and originalFrame2 separately.
+        cv::Mat processedFrame1 = originalFrame1.clone();
+        cv::Mat processedFrame2 = originalFrame2.clone();
+
+        // Process each frame
+        auto processFrame = [this](cv::Mat &frame) {
+            // Create a blob from the image (normalize pixel values to [0,1])
+            cv::Mat blob;
+            cv::dnn::blobFromImage(frame, blob, 1.0 / 255.0, yoloInputSize, cv::Scalar(0, 0, 0), true, false);
+
+            // Set the input to the network
+            yoloNet.setInput(blob);
+
+            // Forward pass to get detections; output shape is assumed to be [1, N, 6]
+            // where each detection is [x1, y1, x2, y2, confidence, classId]
+            cv::Mat detections = yoloNet.forward();
+
+            // The detections matrix is 3D; reshape it to 2D so that each row is a detection.
+            cv::Mat detectionMat(detections.size[1], detections.size[2], CV_32F, detections.ptr<float>());
+
+            // Loop through detections and draw boxes for detections of class "t"
+            for (int i = 0; i < detectionMat.rows; i++) {
+                float conf = detectionMat.at<float>(i, 4);
+                if (conf < confThreshold)
+                    continue;
+
+                // For a single-class model, the class should be 0. However, if you prefer to check by name,
+                // you could hard-code that detections are valid if classId==0 since your model is trained only on 't'.
+                int classId = static_cast<int>(detectionMat.at<float>(i, 5));
+                if (classId != 0)
+                    continue;
+
+                // Get bounding box coordinates (these coordinates are normalized to the input size)
+                float x1 = detectionMat.at<float>(i, 0);
+                float y1 = detectionMat.at<float>(i, 1);
+                float x2 = detectionMat.at<float>(i, 2);
+                float y2 = detectionMat.at<float>(i, 3);
+
+                // Scale the coordinates back to the original frame size.
+                float xScale = static_cast<float>(frame.cols) / yoloInputSize.width;
+                float yScale = static_cast<float>(frame.rows) / yoloInputSize.height;
+                int left   = static_cast<int>(x1 * xScale);
+                int top    = static_cast<int>(y1 * yScale);
+                int right  = static_cast<int>(x2 * xScale);
+                int bottom = static_cast<int>(y2 * yScale);
+
+                // Draw rectangle and put label with confidence
+                cv::rectangle(frame, cv::Point(left, top), cv::Point(right, bottom), cv::Scalar(0, 255, 0), 2);
+                std::string label = cv::format("t: %.2f", conf);
+                cv::putText(frame, label, cv::Point(left, top - 10),
+                            cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 2);
+            }
+        };
+
+        // Run YOLO on both frames (you might consider running these in parallel threads if needed)
+        processFrame(processedFrame1);
+        processFrame(processedFrame2);
+
+        // Emit the processed frames with the detection boxes drawn on them
+        emit processedFramesReady(processedFrame1, processedFrame2);
+
+    }
+    else {
         emit processedFramesReady(originalFrame1, originalFrame2);
     }
 }
@@ -764,14 +876,19 @@ void MainWindow::setProcesseing() {
         processingType="Thresh";
     } else if (ui.showProcessingBallDetectionRadioButton->isChecked()) {
         processingType = "BD";
-    } else {
+    } else if (ui.showProcessingYOLOButton->isChecked()){
+        processingType="YOLO";
+    }
+    else {
         processingType = "None"; // Default to "None" if neither checkbox is checked
     }
-
-    if (processingType == "BD" || processingType == "BGSub" || processingType == "Thresh") {
+    // excluded processingType == "BGSub" || from below if statement bc I want it to
+    // be 3 channel so that we can see a red centroid on it
+    if (processingType == "BD" || processingType == "Thresh") {
         ui.setBackgroundImageButton->setEnabled(true);
         format = QImage::Format_Grayscale8;
     } else {
+        // will also be color for YOLO
         ui.setBackgroundImageButton->setEnabled(false);
         format = QImage::Format_BGR888;
     }
@@ -936,13 +1053,13 @@ void MainWindow::checkLEDDistances() {
     double verticalDistance = cv::norm(topCoords - leftCoords);
     double actualHorizontalDistance = 690; //749
     double actualVerticalDistance = 405; //440
-    
+
     double horizontalError = std::abs(horizontalDistance - actualHorizontalDistance);
     double verticalError = std::abs(verticalDistance - actualVerticalDistance);
 
     qDebug() << "Measured horizontal distance: " << horizontalDistance << " mm, absolute error: " << horizontalError << " mm, relative error: " << horizontalError / actualHorizontalDistance * 100 << " %";
     qDebug() << "Measured vertical distance: " << verticalDistance << " mm, absolute error: " << verticalError << " mm, relative error: " << verticalError / actualVerticalDistance * 100 << " %";
-    
+
 }
 
 void MainWindow::sphericalCalibration() {
@@ -973,10 +1090,10 @@ void MainWindow::sphericalCalibration() {
     // DEBUG: print angle between x and y
     cv::Mat zDir = xDir.cross(yDir);
 
-   
+
     sphericalOrigin = rightCoords + displacementRightLEDToOrigin; // DEBUG: print this
 
-    
+
     rotationMatrix = (cv::Mat_<double>(3,3) <<
                           xDir.at<double>(0,0), xDir.at<double>(1,0), xDir.at<double>(2,0),
                       yDir.at<double>(0,0), yDir.at<double>(1,0), yDir.at<double>(2,0),
@@ -986,7 +1103,7 @@ void MainWindow::sphericalCalibration() {
     qDebug() << "Successfully completed spherical calibration";
 }
 
-void MainWindow::sphericalTest() { // can try to test by pointing at one of the markers 
+void MainWindow::sphericalTest() { // can try to test by pointing at one of the markers
     if (sphericalOrigin.empty() || rotationMatrix.empty()) {
         qCritical() << "Spherical calibration must be done first";
         return;
@@ -1378,6 +1495,14 @@ void MainWindow::performSweepStep() {
 
 
 void MainWindow::sweepLookupTable() {
+
+    QString name = ui.newMoCamCalLineEdit->text().trimmed();
+
+    if (name.isEmpty()) {
+        QMessageBox::warning(this, "Invalid Name", "Please enter a name before starting lookup table sweep.");
+        return;
+    }
+
     qDebug() << "Starting Motor-Camera Sweep";
 
     processingType = "Thresh";
@@ -1955,7 +2080,7 @@ void MainWindow::setBDValues() {
     if (prevKernelSize != kernelSize) {
         cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(kernelSize, kernelSize));
         prevKernelSize = kernelSize;
-    } 
+    }
 
 }
 cv::Point3f MainWindow::processImageCentroid(const cv::Mat &originalFrame1, const cv::Mat &originalFrame2, bool timingEnabled) {
@@ -2013,8 +2138,13 @@ cv::Point3f MainWindow::processImages(const cv::Mat &originalFrame1, const cv::M
     // Find centroids in the thresholded images
     cv::Point2f centroid1 = cv::Point2f(-1, -1), centroid2 = cv::Point2f(-1, -1);
     if (centroidEnabled) {
-        centroid1 = ComputeCentroid(output1);
-        centroid2 = ComputeCentroid(output2);
+        // centroid1 = ComputeCentroid(output1);
+        // centroid2 = ComputeCentroid(output2);
+
+        // std::vector<cv::Point> centroids1, centroids2;
+        centroid1 = FindLargestCentroid(output1);
+        centroid2 = FindLargestCentroid(output2);
+
     }
 
     // Special handling if either centroid is invalid (-1, -1)
@@ -2040,12 +2170,12 @@ cv::Point3f MainWindow::processImages(const cv::Mat &originalFrame1, const cv::M
         if (centroid1 != cv::Point2f(-1, -1) && centroid2 != cv::Point2f(-1, -1)) {
             // Both centroids are valid
             point = handleCentroids(centroid1, centroid2);
-        } 
+        }
     }
-   
+
     // Store the processed frames for further use
     processedFrame1 = output1.clone();
-    processedFrame2 = output2.clone();  
+    processedFrame2 = output2.clone();
     emit processedFramesReady(processedFrame1, processedFrame2);
 
     return point;
@@ -2271,10 +2401,10 @@ cv::Point3f MainWindow::runPrediction() {
 
 
 std::vector<double> MainWindow::leastSquaresFit(
-    const std::deque<double>& t_queue, 
-    const std::deque<double>& x_queue, 
-    const std::deque<double>& y_queue, 
-    const std::deque<double>& z_queue, 
+    const std::deque<double>& t_queue,
+    const std::deque<double>& x_queue,
+    const std::deque<double>& y_queue,
+    const std::deque<double>& z_queue,
     const std::vector<double>& initial_guess
 ) {
     const double g = 9.81; // gravitational acceleration
@@ -2306,10 +2436,10 @@ std::vector<double> MainWindow::leastSquaresFit(
         for (int i = 0; i < t.size(); ++i) {
             // X residual
             residual(i) = x_obs(i) - (x0 + vx0 * t(i));
-            
+
             // Y residual (with gravity)
-            residual(t.size() + i) = y_obs(i) - (y0 + vy0 * t(i) - 0.5 * g * std::pow(t(i), 2));
-            
+            residual(t.size() + i) = y_obs(i) - (y0 + vy0 * t(i) + 0.5 * g * std::pow(t(i), 2));
+
             // Z residual
             residual(2 * t.size() + i) = z_obs(i) - (z0 + vz0 * t(i));
         }

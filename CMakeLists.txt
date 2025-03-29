@@ -11,16 +11,16 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 ########################################################################
 # Set these paths to match your system:
-# TODO: Set your Qt installation directory here
+# Qt installation directory
 set(CMAKE_PREFIX_PATH "C:/Qt/6.8.0/msvc2022_64")
 
-# TODO: Set your Spinnaker SDK path here
+# Spinnaker SDK path
 set(SPINNAKER_SDK_PATH "C:/Program Files/Teledyne/Spinnaker")
 
-# TODO: Set your OpenCV build path here
-set(OPEN_CV_PATH "C:/opencv/build")
+# OpenCV build path -- now using the CUDA-enabled version
+set(OPEN_CV_PATH "C:/opencv_cuda")
 
-# TODO: Set your Teknic SDK path here (base directory)
+# Teknic SDK path (base directory)
 set(TEKNIC_SDK_PATH "C:/Program Files (x86)/Teknic/ClearView/sdk")
 
 set(EIGEN3_INCLUDE_DIR "C:/libs/eigen/eigen-3.4.0")
@@ -71,13 +71,7 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         CameraCalibration.cpp
         CameraCalibration.h
         ProcessTimer.h ProcessTimer.cpp
-
     )
-# Define target properties for Android with Qt 6 as:
-#    set_property(TARGET BeerPongSentinel APPEND PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR
-#                 ${CMAKE_CURRENT_SOURCE_DIR}/android)
-# For more information, see https://doc.qt.io/qt-6/qt-add-executable.html#target-creation
-
     qt_create_translation(QM_FILES ${CMAKE_SOURCE_DIR} ${TS_FILES})
 else()
     if(ANDROID)
@@ -95,16 +89,19 @@ include_directories("${TEKNIC_SDK_PATH}/inc")
 include_directories("${EIGEN3_INCLUDE_DIR}")
 include_directories("${EIGEN3_UNSUPPORTED_DIR}")
 
-# Link directories for Spinnaker and OpenCV (if needed)
+# Link directories for Spinnaker and OpenCV
 link_directories("${SPINNAKER_SDK_PATH}/lib64/vs2015")
 link_directories("${OPEN_CV_PATH}/x64/vc16/lib")
 
+# get all the cuda opencv libraries
+set(OpenCV_DIR "C:/opencv_cuda")
+find_package(OpenCV REQUIRED)
+
 # Link libraries:
-# - Use generator expressions to select the proper Teknic library depending on configuration.
 target_link_libraries(BeerPongSentinel PRIVATE
     Qt${QT_VERSION_MAJOR}::Widgets
     "${SPINNAKER_SDK_PATH}/lib64/vs2015/Spinnaker_v140.lib"
-    "${OPEN_CV_PATH}/x64/vc16/lib/opencv_world4100d.lib"
+    ${OpenCV_LIBS}
     "${TEKNIC_SDK_PATH}/sFoundation Source/sFoundation/win/Debug/x64/sFoundation20.lib"
     "${TEKNIC_SDK_PATH}/lib/win/Release/x64/sFoundation20.lib"
     Qt6::OpenGL
@@ -114,7 +111,6 @@ target_link_libraries(BeerPongSentinel PRIVATE
     Qt6::Qml
 )
 
-# Custom post-build command to copy sFoundation DLLs (replicates the VS custom build step)
 if(MSVC)
     if(CMAKE_SIZEOF_VOID_P EQUAL 8)
         set(PLATFORM_NAME "x64")
@@ -128,7 +124,6 @@ add_custom_command(TARGET BeerPongSentinel POST_BUILD
     COMMENT "Copying sFoundation Files"
 )
 
-# Set target properties for executable bundling
 if(${QT_VERSION} VERSION_LESS 6.1.0)
   set(BUNDLE_ID_OPTION MACOSX_BUNDLE_GUI_IDENTIFIER com.example.BeerPongSentinel)
 endif()
