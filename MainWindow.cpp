@@ -50,7 +50,7 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
 
     // Configure the serial port (modify these settings as necessary for your device)
 
-    serialPort->setPortName("COM4");
+    serialPort->setPortName("COM12");
 
     if (!serialPort->open(QIODevice::ReadWrite)) {
         qDebug() << "Error: Failed to open serial port" << serialPort->portName();
@@ -749,7 +749,7 @@ void MainWindow::receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv
         emit processedFramesReady(thresholdedImage1, thresholdedImage2);
     } else if (processingType == "BD") {
         setBDValues();
-        updateCentroid(processImageCentroid(originalFrame1, originalFrame2, true), timestamp);
+        updateCentroid(processImageCentroidCUDA(originalFrame1, originalFrame2, true), timestamp);
         //qDebug() << "Centroid in receive and process frames: "<< motorCameraCalibrationCurrentCentroid.x << motorCameraCalibrationCurrentCentroid.y << motorCameraCalibrationCurrentCentroid.z ;
     }
     else if (processingType =="YOLO"){
@@ -926,6 +926,7 @@ void MainWindow::setProcesseing() {
     } else if(ui.showProcessingThresholdingRadioButton->isChecked()){
         processingType="Thresh";
     } else if (ui.showProcessingBallDetectionRadioButton->isChecked()) {
+        backSub.dynamicCast<cv::BackgroundSubtractorMOG2>()->clear();
         processingType = "BD";
     } else if (ui.showProcessingYOLOButton->isChecked()){
         processingType="YOLO";
@@ -935,7 +936,7 @@ void MainWindow::setProcesseing() {
     }
     // excluded processingType == "BGSub" || from below if statement bc I want it to
     // be 3 channel so that we can see a red centroid on it
-    if (processingType == "BD" || processingType == "Thresh") {
+    if (processingType == "Thresh") {
         ui.setBackgroundImageButton->setEnabled(true);
         format = QImage::Format_Grayscale8;
     } else {
@@ -2130,6 +2131,14 @@ void MainWindow::setBDValues() {
     kernelSize = ui.processingMorphKernelSize->value();
     if (prevKernelSize != kernelSize) {
         cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(kernelSize, kernelSize));
+        d_kernel.upload(kernel);  // Store the kernel on the GPU
+
+        // Create filters once with the new kernel
+        erodeFilter1 = cv::cuda::createMorphologyFilter(cv::MORPH_ERODE, CV_8UC1, kernel_cpu);
+        dilateFilter1 = cv::cuda::createMorphologyFilter(cv::MORPH_DILATE, CV_8UC1, kernel_cpu);
+        erodeFilter2 = cv::cuda::createMorphologyFilter(cv::MORPH_ERODE, CV_8UC1, kernel_cpu);
+        dilateFilter2 = cv::cuda::createMorphologyFilter(cv::MORPH_DILATE, CV_8UC1, kernel_cpu);
+
         prevKernelSize = kernelSize;
     }
 
@@ -2167,6 +2176,28 @@ cv::Point3f MainWindow::processImageCentroid(const cv::Mat &originalFrame1, cons
 
     //qDebug() << "Returning from processImageCentroid:" << result.x << result.y << result.z;
     return result;
+}
+
+cv::Point3f MainWindow::processImageCentroidCUDA(const cv::Mat &originalFrame1, const cv::Mat &originalFrame2, bool timingEnabled) {
+    setBDValues();
+
+    if (originalFrame1.empty() || originalFrame2.empty()) {
+        qDebug() << "One or both input frames are empty!";
+        return cv::Point3f(-1, -1, -1);
+    }
+
+    // Future to store result
+    QFuture<cv::Point3f> future;
+
+    if (timingEnabled) {
+        cv::Point3f point;
+        totalTimer->timeVoid([&]() {
+            point = processImagesCUDA(originalFrame1, originalFrame2, true);
+        });
+        return point;
+    } else {
+        return processImagesCUDA(originalFrame1, originalFrame2, false);
+    }
 }
 
 cv::Point3f MainWindow::processImages(const cv::Mat &originalFrame1, const cv::Mat &originalFrame2, bool timingEnabled) {
@@ -2232,6 +2263,68 @@ cv::Point3f MainWindow::processImages(const cv::Mat &originalFrame1, const cv::M
     return point;
 }
 
+cv::Point3f MainWindow::processImagesCUDA(const cv::Mat &originalFrame1, const cv::Mat &originalFrame2, bool timingEnabled) {
+    format = QImage::Format_Grayscale8;
+    cv::Point3f point = cv::Point3f(-1, -1, -1);  // Default to invalid point
+
+    // Process image 1
+    QFuture<void> futureOutput1 = QtConcurrent::run([&]() {
+        processSingleImageCUDA(originalFrame1, output1, true, timingEnabled);
+        if (centroidEnabled) {
+            if (timingEnabled) {
+                centroidTimer->timeVoid([&]() {
+                    // centroid1 = FindCentroidCUDA(output1);
+                    centroid1 = ComputeCentroid(output1);
+                });
+            } else {
+                // centroid1 = FindCentroidCUDA(output1);
+                centroid1 = ComputeCentroid(output1);
+            }
+        }
+    });
+
+    // Process image 2
+    QFuture<void> futureOutput2 = QtConcurrent::run([&]() {
+        processSingleImageCUDA(originalFrame2, output2, false, false);
+        // if (centroidEnabled) centroid2 = FindCentroidCUDA(output2);
+        if (centroidEnabled) centroid2 = ComputeCentroid(output2);
+    });
+
+    futureOutput1.waitForFinished();
+    futureOutput2.waitForFinished();
+
+    bool validCentroids = (centroid1 != cv::Point(-1, -1) && centroid2 != cv::Point(-1, -1));
+    if (!validCentroids) {
+        // if (centroid1 == cv::Point2f(-1, -1) && centroid2 == cv::Point2f(-1, -1)) {
+        //     qDebug() << "No centroids detected in either image";
+        // } else {
+        //     qDebug() << "Only one valid centroid detected";
+        // }
+    } else {
+        qDebug() << "Centroids detected";
+        // Handle centroids
+        point = handleCentroids(centroid1, centroid2);
+    }
+
+    if (drawEnabled && validCentroids) {
+        cv::cvtColor(output1, output1, cv::COLOR_GRAY2BGR);
+        cv::cvtColor(output2, output2, cv::COLOR_GRAY2BGR);
+        cv::circle(output1, centroid1, 5, cv::Scalar(0, 0, 255), -1);
+        cv::circle(output2, centroid2, 5, cv::Scalar(0, 0, 255), -1);
+        processedFrame1 = output1.clone();
+        processedFrame2 = output2.clone();
+        format = QImage::Format_BGR888;
+    } else {
+        processedFrame1 = output1.clone();
+        processedFrame2 = output2.clone();
+        format = QImage::Format_Grayscale8;
+    }
+
+    emit processedFramesReady(processedFrame1, processedFrame2);
+
+    return point;
+}
+
 void MainWindow::processSingleImage(const cv::Mat &originalFrame, cv::Mat &output, bool timingEnabled) {
     if (timingEnabled) {
         // Apply HSV and BGR Thresholding with timers
@@ -2288,7 +2381,63 @@ void MainWindow::processSingleImage(const cv::Mat &originalFrame, cv::Mat &outpu
     }
 }
 
-cv::Point3f MainWindow::handleCentroids(const cv::Point2f &centroid1, const cv::Point2f &centroid2) {
+void MainWindow::processSingleImageCUDA(const cv::Mat &originalFrame, cv::Mat& output, bool first, bool timingEnabled) {
+    cv::cuda::GpuMat d_originalFrame = UploadImage(originalFrame);
+    if (timingEnabled) {
+        // Apply HSV and BGR Thresholding with timers
+        if (hsvEnabled || bgrEnabled) {
+            // if (bgrEnabled) {
+            //     bgrTimer->timeVoid([&]() {
+            //         TestApplyBGRThreshold(originalFrame, tmp1, output, hMin, hMax, sMin, sMax, vMin, vMax);
+            //     });
+            // }
+            if (hsvEnabled) {
+                hsvTimer->timeVoid([&]() {
+                    ApplyHSVThresholdCUDA(d_originalFrame, (first) ? d_tmp1 : d_tmp2, (first) ? d_output1 : d_output2, hMin, hMax, sMin, sMax, vMin, vMax);
+                });
+            }
+            if (motionEnabled) {
+                motionTimer->timeVoid([&]() {
+                    ApplyMotionThresholdConsecutivelyCUDA(d_originalFrame, (first) ? d_output1 : d_output2, backSubCUDA, (first) ? d_fgMask1 : d_fgMask2, (first) ? d_tmpGray1 : d_tmpGray2);
+                });
+            }
+        } else if (motionEnabled) {
+            motionTimer->timeVoid([&]() {
+                ApplyMotionThresholdCUDA(d_originalFrame, (first) ? d_output1 : d_output2, backSubCUDA, (first) ? d_fgMask1 : d_fgMask2, (first) ? d_tmpGray1 : d_tmpGray2);
+            });
+        }
+        if (morphEnabled) {
+            morphTimer->timeVoid([&]() {
+                ApplyMorphologyCUDA((first) ? d_output1 : d_output2,
+                                    (first) ? erodeFilter1 : erodeFilter2,
+                                    (first) ? dilateFilter1 : dilateFilter2);
+            });
+        }
+    } else {
+        // If timers are not enabled, process normally (no timers)
+        if (hsvEnabled || bgrEnabled) {
+            // if (bgrEnabled) {
+            //     TestApplyBGRThreshold(originalFrame, tmp1, output, hMin, hMax, sMin, sMax, vMin, vMax);
+            // }
+            if (hsvEnabled) {
+                ApplyHSVThresholdCUDA(d_originalFrame, (first) ? d_tmp1 : d_tmp2, (first) ? d_output1 : d_output2, hMin, hMax, sMin, sMax, vMin, vMax);
+            }
+            if (motionEnabled) {
+                ApplyMotionThresholdConsecutivelyCUDA(d_originalFrame, (first) ? d_output1 : d_output2, backSubCUDA, (first) ? d_fgMask1 : d_fgMask2, (first) ? d_tmpGray1 : d_tmpGray2);
+            }
+        } else if (motionEnabled) {
+            ApplyMotionThresholdCUDA(d_originalFrame, (first) ? d_output1 : d_output2, backSubCUDA, (first) ? d_fgMask1 : d_fgMask2, (first) ? d_tmpGray1 : d_tmpGray2);
+        }
+        if (morphEnabled) {
+            ApplyMorphologyCUDA((first) ? d_output1 : d_output2,
+                                (first) ? erodeFilter1 : erodeFilter2,
+                                (first) ? dilateFilter1 : dilateFilter2);
+        }
+    }
+    (first) ? d_output1.download(output) : d_output2.download(output);
+}
+
+cv::Point3f MainWindow::handleCentroids(const cv::Point &centroid1, const cv::Point &centroid2) {
     // Perform triangulation here if both centroids are valid
     if (!P1.empty() && !P2.empty()) {
         // Prepare the points for triangulation

@@ -219,9 +219,12 @@ private:
     cv::Mat output1, output2;
     cv::Mat kernel;
     cv::Mat processedFrame1, processedFrame2;
-    cv::cuda::GpuMat d_fgMask1, d_fgMask2, d_tmpGray1, d_tmpGray2;
+    cv::cuda::GpuMat d_fgMask1, d_fgMask2, d_tmpGray1, d_tmpGray2, d_tmp1, d_tmp2, d_output1, d_output2;
     cv::cuda::GpuMat d_kernel;
+    cv::Ptr<cv::cuda::Filter> erodeFilter1, dilateFilter1;
+    cv::Ptr<cv::cuda::Filter> erodeFilter2, dilateFilter2;
     cv::Mat kernel_cpu = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(kernelSize, kernelSize));
+    cv::Point centroid1 = cv::Point(-1, -1), centroid2 = cv::Point(-1, -1);
 
 
     ProcessTimer* hsvTimer = new ProcessTimer("HSV Threshold", 200, 5000, this);
@@ -232,9 +235,12 @@ private:
     ProcessTimer* totalTimer = new ProcessTimer("Total Processing", 200, 5000, this);
 
     cv::Point3f processImageCentroid(const cv::Mat &originalFrame1, const cv::Mat &originalFrame2, bool timingEnabled);
+    cv::Point3f processImageCentroidCUDA(const cv::Mat &originalFrame1, const cv::Mat &originalFrame2, bool timingEnabled);
     cv::Point3f processImages(const cv::Mat &originalFrame1, const cv::Mat &originalFrame2, bool timingEnabled);
+    cv::Point3f processImagesCUDA(const cv::Mat &originalFrame1, const cv::Mat &originalFrame2, bool timingEnabled);
     void processSingleImage(const cv::Mat &originalFrame, cv::Mat &output, bool timingEnabled);
-    cv::Point3f handleCentroids(const cv::Point2f &centroid1, const cv::Point2f &centroid2);
+    void processSingleImageCUDA(const cv::Mat &originalFrame, cv::Mat &output, bool first, bool timingEnabled);
+    cv::Point3f handleCentroids(const cv::Point &centroid1, const cv::Point &centroid2);
     void saveCentroidListToJson();
     bool capturingCentroids = false;
     void toggleCaptureCentroid();

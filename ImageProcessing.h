@@ -3,6 +3,7 @@
 
 #include <opencv2/opencv.hpp>
 #include <string>
+#include <opencv2/cudafilters.hpp>
 
 /*
  * Functions for ball detection using background subtraction.
@@ -60,5 +61,28 @@ void ApplyMorphClosing(cv::Mat& input, cv::Mat& kernel);
 cv::Point2f ComputeCentroid(const cv::Mat& input);
 
 void DrawCentroidBinary(cv::Mat& image, const cv::Point2f& centroid, int radius = 5, cv::Scalar color = cv::Scalar(255), int thickness = -1);
+
+cv::cuda::GpuMat UploadImage(const cv::Mat& input);
+
+void ApplyHSVThresholdCUDA(const cv::cuda::GpuMat& d_input, cv::cuda::GpuMat& d_tmp, cv::cuda::GpuMat& d_output,
+                           double minH, double maxH,
+                           double minS, double maxS,
+                           double minV, double maxV);
+
+void ApplyMotionThresholdCUDA(const cv::cuda::GpuMat& d_input,
+                                         cv::cuda::GpuMat& d_output,
+                                         cv::Ptr<cv::BackgroundSubtractor> d_backSub,
+                                         cv::cuda::GpuMat& d_fgMask,
+                                         cv::cuda::GpuMat& d_tmpGray);
+
+void ApplyMotionThresholdConsecutivelyCUDA(const cv::cuda::GpuMat& d_input,
+                                         cv::cuda::GpuMat& d_output,
+                                         cv::Ptr<cv::BackgroundSubtractor> d_backSub,
+                                         cv::cuda::GpuMat& d_fgMask,
+                                         cv::cuda::GpuMat& d_tmpGray);
+
+void ApplyMorphologyCUDA(cv::cuda::GpuMat& d_input, cv::Ptr<cv::cuda::Filter> erodeFilter, cv::Ptr<cv::cuda::Filter> dilateFilter);
+
+cv::Point FindCentroidCUDA(const cv::Mat& input);
 
 #endif // IMAGEPROCESSING_H
