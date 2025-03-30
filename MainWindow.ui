@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1716</width>
+    <width>1717</width>
     <height>1093</height>
    </rect>
   </property>
@@ -235,11 +235,14 @@
            </item>
            <item row="9" column="4">
             <widget class="QCheckBox" name="processingDrawCentroidEnabled">
+             <property name="enabled">
+              <bool>true</bool>
+             </property>
              <property name="text">
               <string>Draw</string>
              </property>
              <property name="checked">
-              <bool>true</bool>
+              <bool>false</bool>
              </property>
             </widget>
            </item>
@@ -368,7 +371,7 @@
               <string>Motion</string>
              </property>
              <property name="checked">
-              <bool>false</bool>
+              <bool>true</bool>
              </property>
             </widget>
            </item>
@@ -438,6 +441,9 @@
               <string>Morph</string>
              </property>
              <property name="checked">
+              <bool>false</bool>
+             </property>
+             <property name="autoRepeat">
               <bool>false</bool>
              </property>
             </widget>
@@ -1552,8 +1558,8 @@ This will automatically move calculate the transfer matrix between the encoder c
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1716</width>
-     <height>25</height>
+     <width>1717</width>
+     <height>26</height>
     </rect>
    </property>
   </widget>
@@ -1573,8 +1579,8 @@ This will automatically move calculate the transfer matrix between the encoder c
  <resources/>
  <connections/>
  <buttongroups>
-  <buttongroup name="showProcessingButtonGroup"/>
-  <buttongroup name="selectCal3DTypeButtonGroup"/>
   <buttongroup name="buttonGroup"/>
+  <buttongroup name="selectCal3DTypeButtonGroup"/>
+  <buttongroup name="showProcessingButtonGroup"/>
  </buttongroups>
 </ui>

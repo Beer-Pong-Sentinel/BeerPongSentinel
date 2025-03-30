@@ -388,3 +388,119 @@ void DrawCentroidBinary(cv::Mat& image, const cv::Point2f& centroid, int radius,
     }
 }
 
+cv::cuda::GpuMat UploadImage(const cv::Mat& input) {
+    // Upload image to GPU
+    cv::cuda::GpuMat d_input;
+    d_input.upload(input);
+    return d_input;
+}
+
+void ApplyHSVThresholdCUDA(const cv::cuda::GpuMat& d_input, cv::cuda::GpuMat& d_tmp, cv::cuda::GpuMat& d_output,
+                           double minH, double maxH,
+                           double minS, double maxS,
+                           double minV, double maxV) {
+
+
+    // Convert to HSV
+    cv::cuda::cvtColor(d_input, d_tmp, cv::COLOR_BGR2HSV);
+
+    if (maxH > 180) {
+        cv::cuda::GpuMat d_mask1, d_mask2;
+
+        // First mask for range [minH, 180]
+        cv::cuda::inRange(d_tmp,
+                          cv::Scalar(minH, minS, minV),
+                          cv::Scalar(180, maxS, maxV),
+                          d_mask1);
+
+        // Second mask for wrap-around range [0, maxH - 180]
+        cv::cuda::inRange(d_tmp,
+                          cv::Scalar(0, minS, minV),
+                          cv::Scalar(maxH - 180, maxS, maxV),
+                          d_mask2);
+
+        // Combine masks with bitwise OR
+        cv::cuda::bitwise_or(d_mask1, d_mask2, d_output);
+    } else {
+        cv::cuda::inRange(d_tmp,
+                          cv::Scalar(minH, minS, minV),
+                          cv::Scalar(maxH, maxS, maxV),
+                          d_output);
+    }
+}
+
+void ApplyMotionThresholdCUDA(const cv::cuda::GpuMat& d_input,
+                                           cv::cuda::GpuMat& d_output,
+                                           cv::Ptr<cv::BackgroundSubtractor> d_backSub,
+                                           cv::cuda::GpuMat& d_fgMask,
+                                           cv::cuda::GpuMat& d_tmpGray)
+{
+    cv::cuda::cvtColor(d_input, d_tmpGray, cv::COLOR_BGR2GRAY);
+
+    d_backSub->apply(d_input, d_fgMask);
+
+    cv::cuda::threshold(d_fgMask, d_output, 254, 255, cv::THRESH_BINARY);
+}
+
+void ApplyMotionThresholdConsecutivelyCUDA(const cv::cuda::GpuMat& d_input,
+                               cv::cuda::GpuMat& d_output,
+                               cv::Ptr<cv::BackgroundSubtractor> d_backSub,
+                               cv::cuda::GpuMat& d_fgMask,
+                               cv::cuda::GpuMat& d_tmpGray)
+{
+    cv::cuda::cvtColor(d_input, d_tmpGray, cv::COLOR_BGR2GRAY);
+
+    d_backSub->apply(d_input, d_fgMask);
+
+    cv::cuda::threshold(d_fgMask, d_fgMask, 254, 255, cv::THRESH_BINARY);
+
+    cv::cuda::bitwise_and(d_output, d_fgMask, d_output);
+}
+
+void ApplyMorphologyCUDA(cv::cuda::GpuMat& d_input, cv::Ptr<cv::cuda::Filter> erodeFilter, cv::Ptr<cv::cuda::Filter> dilateFilter) {
+    // Apply erosion and dilation on the GPU
+    erodeFilter->apply(d_input, d_input);
+    dilateFilter->apply(d_input, d_input);
+}
+
+cv::Point FindCentroidCUDA(const cv::Mat& input) {
+    // 2. Find contours in the CPU-based foreground mask
+    std::vector<std::vector<cv::Point>> contours;
+    cv::findContours(input, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+
+    // We'll store the best ball centroid here (default is -1, -1 if not found)
+    cv::Point ballCentroid(-1, -1);
+
+    // 3. Filter contours by size/circularity to identify the ball
+    double bestCircularity = 0.0;  // track the "best" round contour
+    for (size_t i = 0; i < contours.size(); i++)
+    {
+        double area = cv::contourArea(contours[i]);
+        // Skip very small or very large contours
+        if (area < 1 || area > 50000)
+            continue;
+
+        double perimeter = cv::arcLength(contours[i], true);
+        if (perimeter <= 0)
+            continue;
+
+        // Circularity = 4π * (Area / Perimeter²)
+        double circularity = 4.0 * CV_PI * (area / (perimeter * perimeter));
+        // Adjust threshold (e.g., 0.7) based on how round the ball is
+        if (circularity > 0.8 && circularity > bestCircularity)
+        {
+            // 4. Compute centroid using image moments
+            cv::Moments M = cv::moments(contours[i]);
+            if (M.m00 != 0.0)
+            {
+                int cx = static_cast<int>(M.m10 / M.m00);
+                int cy = static_cast<int>(M.m01 / M.m00);
+                ballCentroid = cv::Point(cx, cy);
+                bestCircularity = circularity;
+            }
+        }
+    }
+
+    return ballCentroid;
+}
+
