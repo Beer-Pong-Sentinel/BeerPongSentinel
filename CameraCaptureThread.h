@@ -36,7 +36,7 @@ private:
     bool running = true;
     bool cameraAvailable = false;
     Spinnaker::SystemPtr system;
-    Spinnaker::CameraList camList; 
+    Spinnaker::CameraList camList;
     mutable QMutex frameMutex;  // Mutex to protect frame access
     cv::Mat frame1;  // Latest frame from camera 1
     cv::Mat frame2;  // Latest frame from camera 2

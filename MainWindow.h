@@ -21,6 +21,7 @@
 #include <opencv2/cudabgsegm.hpp>
 #include <opencv2/core/cuda.hpp>
 #include <opencv2/dnn.hpp>
+#include "YOLOInferenceWorker.h"
 
 
 
@@ -47,6 +48,7 @@ public:
     explicit MainWindow(QWidget *parent = nullptr);  // Constructor
     time_t start = time(0);
     ~MainWindow();  // Destructor
+    void processYOLOFrame(cv::Mat &frame);
 
 //public slots:
     //void processMotorSettled();
@@ -70,6 +72,7 @@ private slots:
     void indicateCameraCalibrationComplete();
     void setupCaptureThreadConnections();
     void onProcessedFramesReady(const cv::Mat &processedFrame1, const cv::Mat &processedFrame2);
+    void handleInferenceComplete(const cv::Mat &processedFrame1, const cv::Mat &processedFrame2);
 
 
 
@@ -92,6 +95,7 @@ private:
     std::vector<cv::Mat> getLEDCoords();
     std::vector<cv::Point> reorderCentroids(const std::vector<cv::Point>& centroids);
     void sphericalCalibration();
+
 
     void sphericalTest();
     void queryMotorPosition(quint16 aziValue, quint16 altValue, QSerialPort &localSerialPort);
@@ -195,10 +199,14 @@ private:
     cv::dnn::Net yoloNet;
 
     // A confidence threshold to filter weak detections (adjust as needed)
-    float confThreshold = 0.5f;
+    float confThreshold = 0.3f;
 
     // Optionally, the input size your model expects
     cv::Size yoloInputSize = cv::Size(640, 640);
+
+    std::mutex yoloMutex;
+    YOLOInferenceWorker *yoloWorker;
+    QThread *yoloThread;
 
 
     // for ball detection

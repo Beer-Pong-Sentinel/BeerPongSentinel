@@ -58,6 +58,7 @@ set(PROJECT_SOURCES
     CameraCalibration.h
     AzimuthControl.cpp
     AzimuthControl.h
+    YOLOInferenceWorker.h
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
@@ -71,6 +72,7 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         CameraCalibration.cpp
         CameraCalibration.h
         ProcessTimer.h ProcessTimer.cpp
+        YOLOInferenceWorker.h
     )
     qt_create_translation(QM_FILES ${CMAKE_SOURCE_DIR} ${TS_FILES})
 else()
@@ -105,6 +107,7 @@ target_link_libraries(BeerPongSentinel PRIVATE
     "${TEKNIC_SDK_PATH}/sFoundation Source/sFoundation/win/Debug/x64/sFoundation20.lib"
     "${TEKNIC_SDK_PATH}/lib/win/Release/x64/sFoundation20.lib"
     Qt6::OpenGL
+    opengl32
     Qt6::OpenGLWidgets
     Qt6::SerialPort
     Qt6::Concurrent
@@ -123,6 +126,12 @@ add_custom_command(TARGET BeerPongSentinel POST_BUILD
     COMMAND "C:/Program Files (x86)/Teknic/ClearView/sdk/examples/sFoundationCopy.bat" ${PLATFORM_NAME} $<CONFIG> "$<TARGET_FILE_DIR:BeerPongSentinel>"
     COMMENT "Copying sFoundation Files"
 )
+
+add_custom_command(TARGET BeerPongSentinel POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory "C:/Program Files/NVIDIA/CUDNN/v9.8/bin/12.8" "$<TARGET_FILE_DIR:BeerPongSentinel>"
+    COMMENT "Copying all cuDNN DLLs to output directory"
+)
+
 
 if(${QT_VERSION} VERSION_LESS 6.1.0)
   set(BUNDLE_ID_OPTION MACOSX_BUNDLE_GUI_IDENTIFIER com.example.BeerPongSentinel)

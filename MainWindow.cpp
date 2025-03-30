@@ -1,3 +1,4 @@
+#include "CameraCaptureThread.h"
 #include "MainWindow.h"
 #include <QtCore/QDebug>
 #include <QtCore/QDir>
@@ -31,6 +32,7 @@
 #include <unsupported/Eigen/LevenbergMarquardt>
 #include <vector>
 #include <cmath>
+#include "YOLOInferenceWorker.h"
 //#include <QmlDebuggingEnabler>
 
 using json = nlohmann::json;
@@ -164,7 +166,12 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
         qDebug() << "Error loading YOLO model:" << e.what();
     }
 
-
+    yoloWorker = new YOLOInferenceWorker(yoloNet, yoloInputSize, confThreshold);
+    yoloThread = new QThread(this);
+    yoloWorker->moveToThread(yoloThread);
+    connect(yoloThread, &QThread::started, yoloWorker, &YOLOInferenceWorker::processQueue);
+    connect(yoloWorker, &YOLOInferenceWorker::inferenceComplete, this, &MainWindow::handleInferenceComplete);
+    yoloThread->start();
 
 }
 
@@ -747,68 +754,28 @@ void MainWindow::receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv
     }
     else if (processingType =="YOLO"){
 
-        // HAVEN'T TESTED THIS YET!!!!!
+        // // Process both frames using YOLO; here we'll show for originalFrame1 and originalFrame2 separately.
+        // cv::Mat processedFrame1 = originalFrame1.clone();
+        // cv::Mat processedFrame2 = originalFrame2.clone();
 
-        // Process both frames using YOLO; here we'll show for originalFrame1 and originalFrame2 separately.
-        cv::Mat processedFrame1 = originalFrame1.clone();
-        cv::Mat processedFrame2 = originalFrame2.clone();
+        // qDebug() << "cloned frames";
 
-        // Process each frame
-        auto processFrame = [this](cv::Mat &frame) {
-            // Create a blob from the image (normalize pixel values to [0,1])
-            cv::Mat blob;
-            cv::dnn::blobFromImage(frame, blob, 1.0 / 255.0, yoloInputSize, cv::Scalar(0, 0, 0), true, false);
+        // QtConcurrent::run([this, processedFrame1, processedFrame2]() mutable {
+        //     processYOLOFrame(processedFrame1);
+        //     qDebug() << "processed frame 1";
+        //     processYOLOFrame(processedFrame2);
+        //     qDebug() << "processed frame 2";
 
-            // Set the input to the network
-            yoloNet.setInput(blob);
-
-            // Forward pass to get detections; output shape is assumed to be [1, N, 6]
-            // where each detection is [x1, y1, x2, y2, confidence, classId]
-            cv::Mat detections = yoloNet.forward();
-
-            // The detections matrix is 3D; reshape it to 2D so that each row is a detection.
-            cv::Mat detectionMat(detections.size[1], detections.size[2], CV_32F, detections.ptr<float>());
-
-            // Loop through detections and draw boxes for detections of class "t"
-            for (int i = 0; i < detectionMat.rows; i++) {
-                float conf = detectionMat.at<float>(i, 4);
-                if (conf < confThreshold)
-                    continue;
-
-                // For a single-class model, the class should be 0. However, if you prefer to check by name,
-                // you could hard-code that detections are valid if classId==0 since your model is trained only on 't'.
-                int classId = static_cast<int>(detectionMat.at<float>(i, 5));
-                if (classId != 0)
-                    continue;
-
-                // Get bounding box coordinates (these coordinates are normalized to the input size)
-                float x1 = detectionMat.at<float>(i, 0);
-                float y1 = detectionMat.at<float>(i, 1);
-                float x2 = detectionMat.at<float>(i, 2);
-                float y2 = detectionMat.at<float>(i, 3);
-
-                // Scale the coordinates back to the original frame size.
-                float xScale = static_cast<float>(frame.cols) / yoloInputSize.width;
-                float yScale = static_cast<float>(frame.rows) / yoloInputSize.height;
-                int left   = static_cast<int>(x1 * xScale);
-                int top    = static_cast<int>(y1 * yScale);
-                int right  = static_cast<int>(x2 * xScale);
-                int bottom = static_cast<int>(y2 * yScale);
-
-                // Draw rectangle and put label with confidence
-                cv::rectangle(frame, cv::Point(left, top), cv::Point(right, bottom), cv::Scalar(0, 255, 0), 2);
-                std::string label = cv::format("t: %.2f", conf);
-                cv::putText(frame, label, cv::Point(left, top - 10),
-                            cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 2);
-            }
-        };
-
-        // Run YOLO on both frames (you might consider running these in parallel threads if needed)
-        processFrame(processedFrame1);
-        processFrame(processedFrame2);
-
-        // Emit the processed frames with the detection boxes drawn on them
-        emit processedFramesReady(processedFrame1, processedFrame2);
+        //     // Emit the processed frames with detection boxes drawn on them
+        //     emit processedFramesReady(processedFrame1, processedFrame2);
+        //     qDebug() << "emitted processed frames";
+        // });
+        //totalTimer->timeVoid([&]() {
+        FramePair pair;
+        pair.frame1 = originalFrame1.clone();
+        pair.frame2 = originalFrame2.clone();
+        yoloWorker->enqueueFramePair(pair);
+        //});
 
     }
     else {
@@ -819,6 +786,90 @@ void MainWindow::receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv
 void MainWindow::onProcessedFramesReady(const cv::Mat &processedFrame1, const cv::Mat &processedFrame2) {
     ui.cameraStreamWidget->updateFrame(processedFrame1, processedFrame2, format);
 }
+
+void MainWindow::handleInferenceComplete(const cv::Mat &processedFrame1, const cv::Mat &processedFrame2) {
+    // Emit these frames to your widget
+    emit processedFramesReady(processedFrame1, processedFrame2);
+}
+
+
+
+void MainWindow::processYOLOFrame(cv::Mat &frame) {
+    qDebug() << "Processing YOLO frame";
+
+    // Create a blob from the image (normalize pixel values to [0,1])
+    cv::Mat blob;
+    cv::dnn::blobFromImage(frame, blob, 1.0 / 255.0, yoloInputSize, cv::Scalar(0, 0, 0), true, false);
+    qDebug() << "Blob created";
+
+    {
+        // Lock the mutex for thread-safe network usage.
+        std::lock_guard<std::mutex> lock(yoloMutex);
+        yoloNet.setInput(blob);
+        qDebug() << "YOLO input set";
+
+        // Forward pass to get detections.
+        cv::Mat outputs = yoloNet.forward();
+        qDebug() << "Forward pass complete";
+
+        // Print output dimensions.
+        QString outputInfo = "Outputs dims: " + QString::number(outputs.dims);
+        for (int i = 0; i < outputs.dims; i++) {
+            outputInfo += " " + QString::number(outputs.size[i]);
+        }
+        qDebug() << outputInfo;
+
+        // The output is expected to be of shape (1, 5, 8400).
+        // Reshape to a 2D matrix with one detection per row (8400 rows, 5 columns).
+        cv::Mat detectionMat = outputs.reshape(1, outputs.size[1]); // now shape is (5, 8400)
+        cv::transpose(detectionMat, detectionMat); // now shape is (8400, 5)
+        qDebug() << "Detection matrix reshaped to:" << detectionMat.rows << "x" << detectionMat.cols;
+
+        // Compute scaling factors from network input size (yoloInputSize) to original frame size.
+        float x_factor = static_cast<float>(frame.cols) / yoloInputSize.width;
+        float y_factor = static_cast<float>(frame.rows) / yoloInputSize.height;
+
+        // Threshold for accepting detections.
+        // modelScoreThreshold should be defined in your class (e.g., 0.5)
+        std::vector<cv::Rect> boxes;
+        std::vector<float> confidences;
+
+        // Pointer to the detection data.
+        float *data = reinterpret_cast<float*>(detectionMat.data);
+        int numDetections = detectionMat.rows; // e.g., 8400
+
+        for (int i = 0; i < numDetections; ++i) {
+            // Each detection is in the form:
+            // [center_x, center_y, width, height, confidence]
+            float cx = data[0];
+            float cy = data[1];
+            float w  = data[2];
+            float h  = data[3];
+            float conf = data[4];
+
+            if (conf > confThreshold) {
+                confidences.push_back(conf);
+                // Convert center-based coordinates to top-left corner.
+                int left = static_cast<int>((cx - 0.5f * w) * x_factor);
+                int top  = static_cast<int>((cy - 0.5f * h) * y_factor);
+                int width = static_cast<int>(w * x_factor);
+                int height = static_cast<int>(h * y_factor);
+                boxes.push_back(cv::Rect(left, top, width, height));
+            }
+            data += 5; // move to the next detection (5 elements per detection)
+        }
+
+        // Draw detection boxes and labels on the frame.
+        for (size_t i = 0; i < boxes.size(); i++) {
+            cv::rectangle(frame, boxes[i], cv::Scalar(0, 255, 0), 2);
+            std::string label = cv::format("t: %.2f", confidences[i]);
+            cv::putText(frame, label, boxes[i].tl(), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 2);
+        }
+        qDebug() << "Drew detection boxes";
+    } // Mutex unlocks here
+}
+
+
 
 
 

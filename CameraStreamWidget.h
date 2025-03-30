@@ -3,13 +3,12 @@
 
 #include <QtOpenGLWidgets/QOpenGLWidget>
 #include <QtGui/QOpenGLFunctions>
+#include <QOpenGLTexture>
 #include <opencv2/opencv.hpp>
-#include <QtGui/QImage>
-#include <QtCore/QMutex>
-#include <QtCore/QThread>
-#include <Spinnaker.h>
-#include <SpinGenApi/SpinnakerGenApi.h>
-
+#include <QImage>
+#include <QMutex>
+#include <QElapsedTimer>
+#include <QTimer>
 #include "CameraCaptureThread.h"
 
 class CameraCaptureThread;
@@ -19,36 +18,30 @@ class CameraStreamWidget : public QOpenGLWidget, protected QOpenGLFunctions {
 
 public:
     explicit CameraStreamWidget(QWidget *parent = nullptr);
-    ~CameraStreamWidget();
+    ~CameraStreamWidget() override;
     void setDefaultBlackFrame();
 
 public slots:
-
-    void updateFrame(const cv::Mat &frame1, const cv::Mat &frame2, QImage::Format format);  // Slot to receive and display frames
+    void updateFrame(const cv::Mat &frame1, const cv::Mat &frame2, QImage::Format format);
 
 protected:
     void initializeGL() override;
     void paintGL() override;
     void resizeGL(int w, int h) override;
 
-
 private:
-    friend class CameraCaptureThread;
-    QImage currentFrame1;  // Store the latest frame from camera 1
-    QImage currentFrame2; 
-    QImage fullFrame;
     QMutex frameMutex;
-    bool cameraFound = false;
-    int frameCounter = 0;
-    int displayInterval = 5;
-    int processingType=0; //0 is none, 1 is thresholding, 2 is BGSub
+    QImage currentFrame1;
+    QImage currentFrame2;
+    QImage fullFrame;
 
+    QOpenGLTexture *m_texture;
     QElapsedTimer m_frameTimer;
     qint64 m_lastUpdateTime;
-    qint64 m_updateInterval;
-    bool m_pendingUpdate;
+    qint64 m_updateInterval; // in milliseconds
+    // Remove m_pendingUpdate: we rely on a fixed QTimer
 
-    CameraCaptureThread *captureThread;  // Thread for capturing frames
+    QTimer *refreshTimer; // Timer to trigger repaint at fixed intervals
 };
 
 #endif // CAMERASTREAMWIDGET_H
