@@ -24,6 +24,7 @@ int main(int argc, char *argv[])
     }
     MainWindow w;
     w.show();
+    QIcon icon(":/icon.png");
     w.setWindowIcon(QIcon(":/icon.png")); // Use the correct path to your icon
 
     return a.exec();
