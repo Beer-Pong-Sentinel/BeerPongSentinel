@@ -1,0 +1,156 @@
+cmake_minimum_required(VERSION 3.16)
+
+# Project name and settings
+project(BeerPongSentinel VERSION 0.1 LANGUAGES CXX)
+add_definitions(-D_WIN32 -DWIN64)
+set(CMAKE_AUTOUIC ON)
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTORCC ON)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+########################################################################
+# Set these paths to match your system:
+# Qt installation directory
+set(CMAKE_PREFIX_PATH "C:/Qt/6.8.0/msvc2022_64")
+
+# Spinnaker SDK path
+set(SPINNAKER_SDK_PATH "C:/Program Files/Teledyne/Spinnaker")
+
+# OpenCV build path -- now using the CUDA-enabled version
+set(OPEN_CV_PATH "C:/opencv_cuda")
+
+# Teknic SDK path (base directory)
+set(TEKNIC_SDK_PATH "C:/Program Files (x86)/Teknic/ClearView/sdk")
+
+set(EIGEN3_INCLUDE_DIR "C:/libs/eigen/eigen-3.4.0")
+set(EIGEN3_UNSUPPORTED_DIR "C:/libs/eigen/eigen-3.4.0/unsupported")
+########################################################################
+
+set(QT_VERSION_MAJOR 6)
+set(Qt6_DIR "${CMAKE_PREFIX_PATH}/lib/cmake/Qt6")
+
+find_package(QT NAMES Qt6 REQUIRED COMPONENTS Widgets LinguistTools OpenGL OpenGLWidgets SerialPort Concurrent Qml)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets LinguistTools OpenGL OpenGLWidgets SerialPort Concurrent Qml)
+
+set(TS_FILES BeerPongSentinel_en_CA.ts)
+
+# List all your source files here
+set(PROJECT_SOURCES
+    main.cpp
+    MainWindow.cpp
+    MainWindow.h
+    MainWindow.ui
+    ${TS_FILES}
+    config.json
+    CameraCaptureThread.cpp
+    CameraSetup.cpp
+    CameraStreamWidget.cpp
+    ImageProcessing.cpp
+    AltitudeControl.cpp
+    CameraCaptureThread.h
+    CameraSetup.h
+    CameraStreamWidget.h
+    ImageProcessing.h
+    AltitudeControl.h
+    json.hpp
+    CameraCalibration.cpp
+    CameraCalibration.h
+    AzimuthControl.cpp
+    AzimuthControl.h
+    YOLOInferenceWorker.h
+)
+
+if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
+    qt_add_executable(BeerPongSentinel
+        MANUAL_FINALIZATION
+        ${PROJECT_SOURCES}
+        config.json
+        CameraCaptureThread.cpp CameraSetup.cpp CameraStreamWidget.cpp ImageProcessing.cpp
+        CameraCaptureThread.h CameraSetup.h CameraStreamWidget.h ImageProcessing.h
+        json.hpp
+        CameraCalibration.cpp
+        CameraCalibration.h
+        ProcessTimer.h ProcessTimer.cpp
+        YOLOInferenceWorker.h
+    )
+    qt_create_translation(QM_FILES ${CMAKE_SOURCE_DIR} ${TS_FILES})
+else()
+    if(ANDROID)
+        add_library(BeerPongSentinel SHARED ${PROJECT_SOURCES})
+    else()
+        add_executable(BeerPongSentinel ${PROJECT_SOURCES})
+    endif()
+    qt5_create_translation(QM_FILES ${CMAKE_SOURCE_DIR} ${TS_FILES})
+endif()
+
+# Add include directories for external SDKs
+include_directories("${SPINNAKER_SDK_PATH}/include")
+include_directories("${OPEN_CV_PATH}/include")
+include_directories("${TEKNIC_SDK_PATH}/inc")
+include_directories("${EIGEN3_INCLUDE_DIR}")
+include_directories("${EIGEN3_UNSUPPORTED_DIR}")
+
+# Link directories for Spinnaker and OpenCV
+link_directories("${SPINNAKER_SDK_PATH}/lib64/vs2015")
+link_directories("${OPEN_CV_PATH}/x64/vc16/lib")
+
+# get all the cuda opencv libraries
+set(OpenCV_DIR "C:/opencv_cuda")
+find_package(OpenCV REQUIRED)
+
+# Link libraries:
+target_link_libraries(BeerPongSentinel PRIVATE
+    Qt${QT_VERSION_MAJOR}::Widgets
+    "${SPINNAKER_SDK_PATH}/lib64/vs2015/Spinnaker_v140.lib"
+    ${OpenCV_LIBS}
+    "${TEKNIC_SDK_PATH}/sFoundation Source/sFoundation/win/Debug/x64/sFoundation20.lib"
+    "${TEKNIC_SDK_PATH}/lib/win/Release/x64/sFoundation20.lib"
+    Qt6::OpenGL
+    opengl32
+    Qt6::OpenGLWidgets
+    Qt6::SerialPort
+    Qt6::Concurrent
+    Qt6::Qml
+)
+
+if(MSVC)
+    if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+        set(PLATFORM_NAME "x64")
+    else()
+        set(PLATFORM_NAME "Win32")
+    endif()
+endif()
+
+add_custom_command(TARGET BeerPongSentinel POST_BUILD
+    COMMAND "C:/Program Files (x86)/Teknic/ClearView/sdk/examples/sFoundationCopy.bat" ${PLATFORM_NAME} $<CONFIG> "$<TARGET_FILE_DIR:BeerPongSentinel>"
+    COMMENT "Copying sFoundation Files"
+)
+
+add_custom_command(TARGET BeerPongSentinel POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory "C:/Program Files/NVIDIA/CUDNN/v9.8/bin/12.8" "$<TARGET_FILE_DIR:BeerPongSentinel>"
+    COMMENT "Copying all cuDNN DLLs to output directory"
+)
+
+
+if(${QT_VERSION} VERSION_LESS 6.1.0)
+  set(BUNDLE_ID_OPTION MACOSX_BUNDLE_GUI_IDENTIFIER com.example.BeerPongSentinel)
+endif()
+set_target_properties(BeerPongSentinel PROPERTIES
+    ${BUNDLE_ID_OPTION}
+    MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
+    MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}"
+    MACOSX_BUNDLE TRUE
+    WIN32_EXECUTABLE TRUE
+)
+
+include(GNUInstallDirs)
+install(TARGETS BeerPongSentinel
+    BUNDLE DESTINATION .
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+if(QT_VERSION_MAJOR EQUAL 6)
+    qt_finalize_executable(BeerPongSentinel)
+endif()

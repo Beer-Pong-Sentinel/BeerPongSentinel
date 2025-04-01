@@ -6,11 +6,12 @@
 #include <QApplication>
 #include <QLocale>
 #include <QTranslator>
-
+#include <QIcon>
 
 int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
+    a.setWindowIcon(QIcon(":/icon.png")); // Use the correct path to your icon
 
     QTranslator translator;
     const QStringList uiLanguages = QLocale::system().uiLanguages();
@@ -23,5 +24,7 @@ int main(int argc, char *argv[])
     }
     MainWindow w;
     w.show();
+    w.setWindowIcon(QIcon(":/icon.png")); // Use the correct path to your icon
+
     return a.exec();
 }
