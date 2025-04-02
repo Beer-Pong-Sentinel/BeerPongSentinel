@@ -24,7 +24,8 @@
 #include "YOLOInferenceWorker.h"
 #include "AltitudeControl.h"
 #include "AzimuthControl.h"
-
+#include <Eigen/Core>
+#include <Eigen/Dense>
 
 
 struct LookupEntry {
@@ -39,6 +40,12 @@ struct CentroidData {
     double y;
     double z;
     double t;
+};
+
+struct InitialConditions {
+    std::vector<double> initial_position;
+    std::vector<double> initial_velocity;
+    std::vector<double> acceleration;
 };
 
 void to_json(nlohmann::json& j, const CentroidData& data);
@@ -83,6 +90,7 @@ private slots:
 
 signals:
     void processedFramesReady(const cv::Mat &processedFrame1, const cv::Mat &processedFrame2);
+    void predictionDataReady(const std::vector<CentroidData>& centroidData);
 
 private:
     QStringList getDirectoriesSortedByDate(const QString &directoryPath);
@@ -268,20 +276,22 @@ private:
 
     // Prediction
     std::vector<CentroidData> centroidData;
-    bool predicting = false;
+    bool predicted = false, predicting = false;
     void togglePrediction();
     QFuture<cv::Point3f> future;
     QFutureWatcher<cv::Point3f> watcher;
     QMutex mutex;
     cv::Point3f runPrediction();
-    // std::deque<float> x_queue, y_queue, z_queue, t_queue;
-    std::vector<double> leastSquaresFit(
-        const std::deque<double>& t_queue,
-        const std::deque<double>& x_queue,
-        const std::deque<double>& y_queue,
-        const std::deque<double>& z_queue,
-        const std::vector<double>& initial_guess
-    );
+    std::vector<double> x_vals, y_vals, z_vals, t_vals;
+    std::vector<double> gravity_vector = {-0.5839661, 10.99642713, 1.39555507};
+    InitialConditions determineInitialConditions(const std::vector<CentroidData>& centroid_data,
+                                                 const std::vector<double>& gravity_vector);
+    Eigen::Vector2d fitTrajectory(const std::vector<double>& t_vals, const std::vector<double>& coords, double a);
+    cv::Point3f getInterceptionPoint(const InitialConditions& initial_conditions, double time);
+    double ball_model(double t, double x0, double v0, double a) {
+        return x0 + v0 * t + 0.5 * a * t * t;
+    }
+    ProcessTimer* predictionTimer = new ProcessTimer("Prediction", 1, 5000, this);
 
     bool isRecording = false;               // Flag to track recording state
     cv::VideoWriter videoWriter;            // OpenCV video writer
