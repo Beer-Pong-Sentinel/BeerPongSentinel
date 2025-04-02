@@ -50,7 +50,7 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
 
     // Configure the serial port (modify these settings as necessary for your device)
 
-    serialPort->setPortName("COM12");
+    serialPort->setPortName("COM7");
 
     if (!serialPort->open(QIODevice::ReadWrite)) {
         qDebug() << "Error: Failed to open serial port" << serialPort->portName();
@@ -69,10 +69,18 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
 
     connect(ui.selectCal3DFromSavedFile, &QRadioButton::toggled, this, &MainWindow::toggleCal3DType);
     connect(ui.selectNewCal3D, &QRadioButton::toggled, this, &MainWindow::toggleCal3DType);
+
     connect(ui.selectMoCamCalFromSavedFile, &QRadioButton::toggled, this, &MainWindow::toggleMotorCameraCalType);
     connect(ui.selectNewMoCamCal, &QRadioButton::toggled, this, &MainWindow::toggleMotorCameraCalType);
+
     connect(ui.savedCal3DFilesRefreshButton, &QPushButton::clicked, this, &MainWindow::updateSavedCameraCalibrationFilesComboBox);
+    connect(ui.savedMoCamFilesRefreshButton, &QPushButton::clicked, this, &MainWindow::updateSavedMotorCameraCalibrationFilesComboBox);
+
+
     connect(ui.calibrateCal3DFromLoadedFile, &QPushButton::clicked, this, &MainWindow::calibrateCameraWithSelectedFile);
+    connect(ui.calibrateMoCamFromLoadedFile, &QPushButton::clicked, this, &MainWindow::calibrateMotorCameraWithSelectedFile);
+
+
     connect(ui.newCal3DStartImageCaptureButton, &QPushButton::clicked, this, &MainWindow::newCameraCalibrationStartImageCapture);
     connect(ui.newCal3DSaveImagePairButton, &QPushButton::clicked, this, &MainWindow::newCameraCalibrationSaveImagePair);
     connect(ui.newCal3DStopImageCaptureButton, &QPushButton::clicked, this, &MainWindow::newCal3DStopImageCapture);
@@ -121,15 +129,22 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
     connect(ui.nearSweepRadioButton, &QRadioButton::toggled, this, &MainWindow::toggleNearFarSweep);
 
 
-    connect(ui.calculateLookupTableButton, &QPushButton::clicked, this, &MainWindow::calculateLookupTable);
+    connect(ui.calculateLookupTableButton, &QPushButton::clicked, this, &MainWindow::getLookupTable);
 
-    connect(ui.interpLookupTableButton, &QPushButton::clicked, this, [this]() {
-        calculateInterpolatedLookupTable(40, 40);
-    });
+    connect(ui.numPointsAzimuthSpinbox, QOverload<int>::of(&QSpinBox::valueChanged),
+            [this](int newValue) {
+                ui.numAzInterpPointsSpinBox->setMinimum(newValue);
+            });
+
+    connect(ui.numPointsAltitudeSpinbox, QOverload<int>::of(&QSpinBox::valueChanged),
+            [this](int newValue) {
+                ui.numAlInterpPointsSpinBox->setMinimum(newValue);
+            });
+
 
     connect(ui.aimButton, &QPushButton::clicked, this, &MainWindow::aimAtCentroid);
-    connect(ui.startContinuousAimButton, &QPushButton::clicked, this, &MainWindow::aimContinuous);
-    connect(ui.stopContinuousAimButton, &QPushButton::clicked, this, &MainWindow::stopContinuousAim);
+    //connect(ui.startContinuousAimButton, &QPushButton::clicked, this, &MainWindow::aimContinuous);
+    //connect(ui.stopContinuousAimButton, &QPushButton::clicked, this, &MainWindow::stopContinuousAim);
 
     connect(ui.startCentroidPushButton, &QPushButton::clicked, this, &MainWindow::toggleCaptureCentroid);
     connect(ui.saveCentroidPushButton, &QPushButton::clicked, this, &MainWindow::saveCentroidListToJson);
@@ -144,6 +159,7 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
     qDebug()<<"connected thread";
 
     updateSavedCameraCalibrationFilesComboBox();
+    updateSavedMotorCameraCalibrationFilesComboBox();
 
     sweepData = nlohmann::json::object();
     sweepData["sweep"] = nlohmann::json::array();
@@ -173,6 +189,14 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
     connect(yoloWorker, &YOLOInferenceWorker::inferenceComplete, this, &MainWindow::handleInferenceComplete);
     yoloThread->start();
 
+    alConfigData = parseAltitudeConfig();
+    azConfigData = parseAzimuthConfig();
+
+    qDebug() << "Loaded motor configs";
+
+    setMotorGUILimits();
+
+
 }
 
 MainWindow::~MainWindow() {
@@ -182,6 +206,16 @@ MainWindow::~MainWindow() {
     // not gonna work lol
     disableAzimuth();
 
+
+}
+
+void MainWindow::setMotorGUILimits(){
+
+    ui.azimuthLimitSpinbox->setMinimum(azConfigData.minAzAngle);
+    ui.azimuthLimitSpinbox->setMaximum(azConfigData.maxAzAngle);
+
+    ui.altitudeLimitSpinbox->setMinimum(alConfigData.minAlAngle);
+    ui.altitudeLimitSpinbox->setMaximum(alConfigData.maxAlAngle);
 
 }
 
@@ -205,6 +239,7 @@ void MainWindow::toggleMotorCameraCalType() {
     } else if (ui.selectNewMoCamCal->isChecked()) {
         ui.loadMoCamCalGroupbox->setEnabled(false);
         ui.newMoCamCalGroupbox->setEnabled(true);
+        resetMotorCameraCalibration();
     }
 }
 
@@ -240,11 +275,11 @@ void MainWindow::updateSavedCameraCalibrationFilesComboBox() {
     ui.savedCal3DFilesComboBox->addItems(sortedDirectories);
 }
 
-void MainWindow::indicateCameraCalibrationComplete(){
+// void MainWindow::indicateCameraCalibrationComplete(){
 
-    ui.completedCameraCalibrationCheckBox->setChecked(true);
-    ui.projectionErrorLabel->setText(QString::number(projectionError, 'f', 2) + " px");
-}
+//     ui.completedCameraCalibrationCheckBox->setChecked(true);
+//     ui.projectionErrorLabel->setText(QString::number(projectionError, 'f', 2) + " px");
+// }
 
 void MainWindow::calibrateCameraWithSelectedFile() {
     // Get the selected directory from the combo box
@@ -295,7 +330,7 @@ void MainWindow::calibrateCameraWithSelectedFile() {
 
         qDebug() << "Successfully loaded P1, P2, and projectionError from" << filePath;
         qDebug() << "Projection error:" << projectionError;
-        indicateCameraCalibrationComplete();
+        //indicateCameraCalibrationComplete();
         // TODO: Fix the checkLED command crashing calibration when cameras are not capturing.
         // checkLEDDistances();
     } catch (json::exception &e) {
@@ -303,7 +338,117 @@ void MainWindow::calibrateCameraWithSelectedFile() {
     }
 }
 
+void MainWindow::updateSavedMotorCameraCalibrationFilesComboBox() {
+    // Get the project directory path
+    QString cal3DFilesDirectory = "../../MotorCameraCalibration/";  // Replace with your main project folder path
 
+    // Retrieve sorted directories
+    QStringList sortedDirectories = getDirectoriesSortedByDate(cal3DFilesDirectory);
+
+    // Clear the existing items in the combo box and populate it with the sorted list
+    ui.savedMoCamFilesComboBox->clear();
+    ui.savedMoCamFilesComboBox->addItems(sortedDirectories);
+}
+
+void MainWindow::calibrateMotorCameraWithSelectedFile() {
+    // Get the selected directory from the combo box
+    QString name = ui.savedMoCamFilesComboBox->currentText();
+    if (name.isEmpty()) {
+        qDebug() << "Calibration name is empty. Please enter a valid name.";
+        return;
+    }
+
+    // Construct the path to the JSON file
+    QString filePath = QString("../../MotorCameraCalibration/%1/interpolated_lookuptable.json").arg(name);
+
+    // Check if the file exists
+    if (!QFile::exists(filePath)) {
+        qDebug() << "File does not exist:" << filePath;
+        return;
+    }
+
+    // Open the JSON file using an ifstream
+    std::ifstream file(filePath.toStdString());
+    if (!file.is_open()) {
+        qDebug() << "Failed to open the JSON file:" << filePath;
+        return;
+    }
+
+    // Parse the JSON file
+    nlohmann::json j;
+    try {
+        file >> j;
+    } catch (const std::exception &e) {
+        qDebug() << "Error parsing JSON:" << e.what();
+        return;
+    }
+    file.close();
+
+    // Load the interpolated lookup table from the JSON.
+    if (!j.contains("lookuptable") || !j["lookuptable"].is_array()) {
+        qDebug() << "Error: JSON file does not contain a valid 'lookuptable' array.";
+        return;
+    }
+
+    std::vector<LookupEntry> loadedLookupTable;
+    auto lookupArray = j["lookuptable"];
+    for (const auto &entry : lookupArray) {
+        // Expect each row to have exactly 8 values: [az, al, xo, yo, zo, ux, uy, uz]
+        if (!entry.is_array() || entry.size() < 8) {
+            qDebug() << "Warning: A lookup table entry does not have enough elements. Skipping.";
+            continue;
+        }
+        LookupEntry lookupEntry;
+        try {
+            lookupEntry.az = entry[0].get<double>();
+            lookupEntry.al = entry[1].get<double>();
+            lookupEntry.xo = entry[2].get<double>();
+            lookupEntry.yo = entry[3].get<double>();
+            lookupEntry.zo = entry[4].get<double>();
+            lookupEntry.ux = entry[5].get<double>();
+            lookupEntry.uy = entry[6].get<double>();
+            lookupEntry.uz = entry[7].get<double>();
+        } catch (const std::exception &e) {
+            qDebug() << "Error converting lookup entry:" << e.what();
+            continue;
+        }
+        loadedLookupTable.push_back(lookupEntry);
+    }
+
+    // Save the loaded lookup table into the class variable.
+    this->interpolatedLookupTable = loadedLookupTable;
+    qDebug() << "Loaded interpolated lookup table with" << loadedLookupTable.size() << "entries.";
+}
+
+
+
+
+void MainWindow::resetMotorCameraCalibration() {
+    if (ui.newMoCamCalGroupbox->isEnabled()) {
+        // Enable these widgets
+        ui.newMoCamCalLineEdit->setEnabled(true);
+        ui.startMotorCameraCalibrationButton->setEnabled(true);
+
+        // Disable these widgets
+        ui.stopMotorCameraCalibrationButton->setEnabled(false);
+        ui.nearSweepDoneCheckBox->setEnabled(false);
+        ui.farSweepDoneCheckBox->setEnabled(false);
+        ui.calculateLookupTableButton->setEnabled(false);
+        ui.setAimAlRPMLimitSpinBox->setEnabled(false);
+        ui.numAzInterpPointsSpinBox->setEnabled(false);
+        ui.numAlInterpPointsSpinBox->setEnabled(false);
+
+        //uncheck sweep completed boxes
+        ui.nearSweepRadioButton->setChecked(false);
+        ui.farSweepDoneCheckBox->setChecked(false);
+
+        // redo radio buttons
+        ui.nearSweepRadioButton->setChecked(true);
+        ui.farSweepRadioButton->setChecked(false);
+
+        stopCapture();
+    }
+}
 
 void MainWindow::resetNewCameraCalibration() {
     if (ui.newCal3DGroupBox->isEnabled()) {
@@ -754,28 +899,12 @@ void MainWindow::receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv
     }
     else if (processingType =="YOLO"){
 
-        // // Process both frames using YOLO; here we'll show for originalFrame1 and originalFrame2 separately.
-        // cv::Mat processedFrame1 = originalFrame1.clone();
-        // cv::Mat processedFrame2 = originalFrame2.clone();
 
-        // qDebug() << "cloned frames";
-
-        // QtConcurrent::run([this, processedFrame1, processedFrame2]() mutable {
-        //     processYOLOFrame(processedFrame1);
-        //     qDebug() << "processed frame 1";
-        //     processYOLOFrame(processedFrame2);
-        //     qDebug() << "processed frame 2";
-
-        //     // Emit the processed frames with detection boxes drawn on them
-        //     emit processedFramesReady(processedFrame1, processedFrame2);
-        //     qDebug() << "emitted processed frames";
-        // });
-        //totalTimer->timeVoid([&]() {
         FramePair pair;
         pair.frame1 = originalFrame1.clone();
         pair.frame2 = originalFrame2.clone();
-        yoloWorker->enqueueFramePair(pair);
-        //});
+        yoloWorker->enqueueFramePair(pair, timestamp);
+
 
     }
     else {
@@ -787,9 +916,38 @@ void MainWindow::onProcessedFramesReady(const cv::Mat &processedFrame1, const cv
     ui.cameraStreamWidget->updateFrame(processedFrame1, processedFrame2, format);
 }
 
-void MainWindow::handleInferenceComplete(const cv::Mat &processedFrame1, const cv::Mat &processedFrame2) {
-    // Emit these frames to your widget
+void MainWindow::handleInferenceComplete(const cv::Mat &processedFrame1, const cv::Mat &processedFrame2,
+                                         cv::Point centroid1, cv::Point centroid2, double timestamp)
+{
+    // Emit these frames to your widget.
     emit processedFramesReady(processedFrame1, processedFrame2);
+
+    // Log the centroids received.
+    qDebug() << "Centroid for frame 1:" << centroid1.x << "," << centroid1.y;
+    qDebug() << "Centroid for frame 2:" << centroid2.x << "," << centroid2.y;
+
+    if (!P1.empty() && !P2.empty()) {
+
+        if (centroid1.x != -1 && centroid1.y != -1){
+            // Triangulate the 3D point from the centroids
+            cv::Mat pts1 = (cv::Mat_<double>(2, 1) << static_cast<double>(centroid1.x), static_cast<double>(centroid1.y));
+            cv::Mat pts2 = (cv::Mat_<double>(2, 1) << static_cast<double>(centroid2.x), static_cast<double>(centroid2.y));
+
+            cv::Mat points4D;
+            cv::triangulatePoints(P1, P2, pts1, pts2, points4D);
+
+            cv::Mat point3D = points4D.rowRange(0, 3) / points4D.at<double>(3, 0);
+            cv::Point3f point3f(point3D.at<double>(0), point3D.at<double>(1), point3D.at<double>(2));
+            updateCentroid(point3f, timestamp);
+            std::cout << "Triangulated 3D Point YOLO: " << point3f.x << " " << point3f.y << " " << point3f.z << std::endl;
+        } else {
+            qDebug() << "no ball centroid found";
+        }
+    } else {
+        qDebug() << "Projection matrices are empty, cannot triangulate.";
+    }
+
+
 }
 
 
@@ -1389,8 +1547,11 @@ void MainWindow::disableAltitude(){
 
 void MainWindow::toggleNearFarSweep() {
 
-    if (ui.farSweepRadioButton->isChecked()) {
-        // if far away the sweep settings are enabled
+    // we want to set the limiting angles for the near
+    // sweep first.
+    if (ui.nearSweepRadioButton->isChecked()) {
+        // if near away the sweep settings are enabled
+        ui.farSweepRadioButton->setChecked(false);
         ui.azimuthLimitSpinbox->setEnabled(true);
         ui.goToAzLimitButton->setEnabled(true);
         ui.setLowerAzLimit->setEnabled(true);
@@ -1402,8 +1563,10 @@ void MainWindow::toggleNearFarSweep() {
         ui.setLowerAlLimit->setEnabled(true);
         ui.setUpperAlLimit->setEnabled(true);
         ui.numPointsAltitudeSpinbox->setEnabled(true);
-    } else if (ui.nearSweepRadioButton->isChecked()) {
-        // if near sweep selected disable so you can't change
+        ui.setSweepAlRPMLimitSpinBox->setEnabled(true);
+    } else if (ui.farSweepRadioButton->isChecked()) {
+        // if far sweep selected disable so you can't change
+        ui.nearSweepRadioButton->setChecked(false);
         ui.azimuthLimitSpinbox->setEnabled(false);
         ui.goToAzLimitButton->setEnabled(false);
         ui.setLowerAzLimit->setEnabled(false);
@@ -1415,14 +1578,16 @@ void MainWindow::toggleNearFarSweep() {
         ui.setLowerAlLimit->setEnabled(false);
         ui.setUpperAlLimit->setEnabled(false);
         ui.numPointsAltitudeSpinbox->setEnabled(false);
+        ui.setSweepAlRPMLimitSpinBox->setEnabled(false);
     }
 }
 
 void MainWindow::moveAlLimit()
 {
     double altitudeLimit = ui.altitudeLimitSpinbox->value();
+    sweepAlRPMLimit = ui.setSweepAlRPMLimitSpinBox->value();
     qDebug() << "moving altitude to " <<altitudeLimit << "degrees";
-    moveAltitudeMotor(altitudePointer, altitudeLimit, 1.0);
+    moveAltitudeMotor(altitudePointer, altitudeLimit, sweepAlRPMLimit);
     QThread::msleep(250);
 
 }
@@ -1478,18 +1643,30 @@ void MainWindow::performSweepStep() {
         // Sweep complete: stop capture, reset UI, and save the JSON file.
         stopCapture();
         processingType = "None";
-        ui.setBackgroundImageButton->setEnabled(false);
         format = QImage::Format_BGR888;
         qDebug() << "Sweep complete. Camera capture stopped.";
+
+        // Create folder based on sweepName
+        QString folderPath = QString("../../MotorCameraCalibration/") + sweepName;
+        QDir dir;
+        if (!dir.exists(folderPath)) {
+            if (!dir.mkpath(folderPath)) {
+                qDebug() << "Failed to create directory:" << folderPath;
+                // Optionally handle the error (e.g., return or set an error flag)
+            }
+        }
 
         // Determine file path based on radio button selection.
         std::string filePath = "";
         if (ui.farSweepRadioButton->isChecked()){
-            filePath = "../../MotorCameraCalibration/far_sweep.json";
+            filePath = folderPath.toStdString() + "/far_sweep.json";
+            ui.farSweepDoneCheckBox->setChecked(true);
         }
         else if (ui.nearSweepRadioButton->isChecked()){
-            filePath = "../../MotorCameraCalibration/near_sweep.json";
+            filePath = folderPath.toStdString() + "/near_sweep.json";
+            ui.nearSweepDoneCheckBox->setChecked(true);
         }
+
         std::ofstream outFile(filePath);
         if (outFile.is_open()) {
             outFile << std::setw(4) << sweepData << std::endl;
@@ -1498,8 +1675,23 @@ void MainWindow::performSweepStep() {
         } else {
             qDebug() << "Error opening file for sweep data:" << QString::fromStdString(filePath);
         }
+        sweepTimer->stop();
+
+        if(ui.nearSweepDoneCheckBox->isChecked() && ui.farSweepDoneCheckBox->isChecked()){
+            // if both sweeps have been performed, unlock the next buttons.
+            ui.calculateLookupTableButton->setEnabled(true);
+            ui.numAzInterpPointsSpinBox->setEnabled(true);
+            ui.numAlInterpPointsSpinBox->setEnabled(true);
+        }
+
+        ui.startMotorCameraCalibrationButton->setEnabled(true);
+        ui.stopMotorCameraCalibrationButton->setEnabled(false);
+
+        sweepData.clear();
+
         return;
     }
+
 
     // For a new azimuth group, move the azimuth motor once.
     if (currentAlIndex == 0) {
@@ -1514,7 +1706,7 @@ void MainWindow::performSweepStep() {
     if (currentAlIndex < altitudeCalPositions.size()) {
         double al = altitudeCalPositions[currentAlIndex];
         qDebug() << "Moving altitude to" << al << "degrees";
-        moveAltitudeMotor(altitudePointer, al, 1.0);
+        moveAltitudeMotor(altitudePointer, al, sweepAlRPMLimit);
 
         // Capture the current azimuth and altitude in local variables.
         double localAz = azimuthCalPositions[currentAzIndex];
@@ -1548,17 +1740,22 @@ void MainWindow::performSweepStep() {
 
 void MainWindow::sweepLookupTable() {
 
-    QString name = ui.newMoCamCalLineEdit->text().trimmed();
+    sweepName = ui.newMoCamCalLineEdit->text().trimmed();
 
-    if (name.isEmpty()) {
+    if (sweepName.isEmpty()) {
         QMessageBox::warning(this, "Invalid Name", "Please enter a name before starting lookup table sweep.");
         return;
     }
 
+
     qDebug() << "Starting Motor-Camera Sweep";
 
+    // disable start button
+    ui.startMotorCameraCalibrationButton->setEnabled(false);
+    // enable stop button
+    ui.stopMotorCameraCalibrationButton->setEnabled(true);
+
     processingType = "Thresh";
-    ui.setBackgroundImageButton->setEnabled(true);
     format = QImage::Format_Grayscale8;
 
     startCapture();
@@ -1571,6 +1768,7 @@ void MainWindow::sweepLookupTable() {
     altitudeCalPositions = linspace(altitudeCalLowerLimit, altitudeCalUpperLimit, numAlPoints);
     currentAzIndex = 0;
     currentAlIndex = 0;
+    sweepAlRPMLimit = ui.setSweepAlRPMLimitSpinBox->value();
 
     // Create and start a QTimer with an interval that suits your needs (e.g., 2000ms)
     sweepTimer = new QTimer(this);
@@ -1579,6 +1777,26 @@ void MainWindow::sweepLookupTable() {
 
     qDebug() << "Motor-Camera Sweep started";
 }
+
+void MainWindow::stopSweep() {
+    // Stop the timer if it exists and is active.
+    if (sweepTimer && sweepTimer->isActive()) {
+        sweepTimer->stop();
+    }
+
+    // Stop capture and reset processing type.
+    stopCapture();
+    processingType = "None";
+
+    // Optionally reset indices for a future sweep.
+    currentAzIndex = 0;
+    currentAlIndex = 0;
+
+    qDebug() << "Motor-Camera Sweep stopped by user.";
+
+    resetMotorCameraCalibration();
+}
+
 
 
 #include <fstream>
@@ -1593,8 +1811,13 @@ void MainWindow::sweepLookupTable() {
 
 void MainWindow::calculateLookupTable() {
     // Open the far and near JSON files
-    std::ifstream farFile("../../MotorCameraCalibration/far_sweep.json");
-    std::ifstream nearFile("../../MotorCameraCalibration/near_sweep.json");
+
+
+
+    QString folderPath = "../../MotorCameraCalibration/" + sweepName;
+    std::ifstream farFile((folderPath + "/far_sweep.json").toStdString());
+    std::ifstream nearFile((folderPath + "/near_sweep.json").toStdString());
+
 
     if (!farFile.is_open() || !nearFile.is_open()) {
         qDebug() << "Error: Could not open one of the JSON files.";
@@ -1662,7 +1885,8 @@ void MainWindow::calculateLookupTable() {
     }
 
     // Write the lookup table to "lookuptable.json"
-    std::ofstream outFile("../../MotorCameraCalibration/lookuptable.json");
+    QString lookupTablePath = folderPath + "/lookuptable.json";
+    std::ofstream outFile(lookupTablePath.toStdString());
     if (!outFile.is_open()) {
         qDebug() << "Error: Could not open lookuptable.json for writing.";
         return;
@@ -1682,7 +1906,6 @@ void MainWindow::calculateLookupTable() {
 #include <cmath>
 #include <iomanip>
 #include "json.hpp"  // nlohmann::json
-#include "mainwindow.h"
 
 // Helper function: Bilinear interpolation
 double bilinearInterpolate(double x, double y,
@@ -1700,10 +1923,16 @@ double bilinearInterpolate(double x, double y,
     return (term1 + term2 + term3 + term4) / denom;
 }
 
-void MainWindow::calculateInterpolatedLookupTable(int newAzCount, int newAlCount)
+void MainWindow::calculateInterpolatedLookupTable()
 {
+
+    int newAzCount = ui.numAzInterpPointsSpinBox->value();
+    int newAlCount = ui.numAlInterpPointsSpinBox->value();
+
+    QString folderPath = "../../MotorCameraCalibration/" + sweepName;
+
     // 1. Read the raw lookup table JSON file.
-    std::ifstream inFile("../../MotorCameraCalibration/lookuptable.json");
+    std::ifstream inFile((folderPath + "/lookuptable.json").toStdString());
     if (!inFile.is_open()) {
         qDebug() << "Error: Could not open lookuptable.json";
         return;
@@ -1868,7 +2097,8 @@ void MainWindow::calculateInterpolatedLookupTable(int newAzCount, int newAlCount
     }
 
     // 7. Save the interpolated lookup table to a new JSON file.
-    std::ofstream outFile("../../MotorCameraCalibration/interpolated_lookuptable.json");
+    QString lookupTablePath = folderPath + "/interpolated_lookuptable.json";
+    std::ofstream outFile(lookupTablePath.toStdString());
     if (!outFile.is_open()) {
         qDebug() << "Error: Could not open file for writing interpolated lookup table.";
         return;
@@ -1882,6 +2112,14 @@ void MainWindow::calculateInterpolatedLookupTable(int newAzCount, int newAlCount
     qDebug() << "Interpolated lookup table successfully saved to interpolated_lookuptable.json";
 }
 
+
+void MainWindow::getLookupTable(){
+    calculateLookupTable();
+    calculateInterpolatedLookupTable();
+
+    ui.setAimAlRPMLimitSpinBox->setEnabled(true);
+    ui.aimButton->setEnabled(true);
+}
 
 #include <limits>
 #include <utility>  // for std::pair
@@ -1953,11 +2191,12 @@ void MainWindow::aimAtCentroid(){
     qDebug() << "Moving azimuth motor by" << azSteps << "steps.";
     sendSerialMessage(QString::number(azSteps));
     azimuthPosition += azSteps;  // Update current azimuth position.
+    double aimRPMLimit = ui.setAimAlRPMLimitSpinBox->value();
 
     // Use a short delay to allow the azimuth move to start/completed before moving altitude.
-    QTimer::singleShot(200, this, [this, bestAngles]() {
+    QTimer::singleShot(200, this, [this, bestAngles, aimRPMLimit]() {
         qDebug() << "Moving altitude motor to" << bestAngles.second << "degrees.";
-        moveAltitudeMotor(altitudePointer, bestAngles.second, 5.0);
+        moveAltitudeMotor(altitudePointer, bestAngles.second, aimRPMLimit);
     });
 }
 

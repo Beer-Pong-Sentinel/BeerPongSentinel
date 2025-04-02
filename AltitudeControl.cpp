@@ -4,6 +4,9 @@
 #include <string>
 #include <iostream>
 #include "pubSysCls.h"
+#include "json.hpp"
+#include <fstream>
+using json = nlohmann::json;
 
 using namespace sFnd;
 
@@ -14,6 +17,41 @@ using namespace sFnd;
 
 #define TIME_TILL_TIMEOUT   10000   //The timeout used for homing(ms)
 #define DEGREE_PER_STEP 0.057
+
+
+
+AlConfigData parseAltitudeConfig() {
+    std::cout << "in altitude motor parse config" << std::endl;
+    // Open and parse the JSON file
+    std::ifstream f("../../config.json");
+    if (!f.is_open()) {
+        std::cout << "Error: Could not open config.json file" << std::endl;
+    }
+    json config = json::parse(f);
+    std::cout << "successfully parsed altitude config" << std::endl;
+
+
+    AlConfigData alConfigData;
+    std::cout << "initialized alConfigData" << std::endl;
+
+
+    alConfigData.minAlAngle = config["motor_params"]["minAlAngle"];
+    std::cout << "parsed al min angle" << std::endl;
+
+    alConfigData.maxAlAngle = config["motor_params"]["maxAlAngle"];
+    std::cout << "parsed al max angle" << std::endl;
+
+
+    alConfigData.minAlRPMLimit = config["motor_params"]["minAlRPMLimit"];
+    std::cout << "parsed al min RPM limit" << std::endl;
+
+    alConfigData.maxAlRPMLimit = config["motor_params"]["maxAlRPMLimit"];
+    std::cout << "parsed al max RPM limit" << std::endl;
+
+
+    return alConfigData;
+}
+
 
 INode* initializeAltitudeMotor()
 {
@@ -31,31 +69,34 @@ INode* initializeAltitudeMotor()
     try
     {
 
-        SysManager::FindComHubPorts(comHubPorts);
-        qDebug() << "Found" << comHubPorts.size() << "SC Hubs";
+        // SysManager::FindComHubPorts(comHubPorts);
+        // qDebug() << "Found" << comHubPorts.size() << "SC Hubs";
 
-        for (portCount = 0; portCount < comHubPorts.size() && portCount < NET_CONTROLLER_MAX; portCount++) {
+        // for (portCount = 0; portCount < comHubPorts.size() && portCount < NET_CONTROLLER_MAX; portCount++) {
 
-            myMgr->ComHubPort(portCount, comHubPorts[portCount].c_str());    //define the first SC Hub port (port 0) to be associated
-                // with COM portnum (as seen in device manager)
-        }
+        //     myMgr->ComHubPort(portCount, comHubPorts[portCount].c_str());    //define the first SC Hub port (port 0) to be associated
+        //         // with COM portnum (as seen in device manager)
+        // }
 
 
-        if (portCount > 0) {
-            //qDebug() << "\n I will now open port \t" << portnum << "\n \n";
-            myMgr->PortsOpen(portCount);             //Open the port
+        // if (portCount > 0) {
+        //     //qDebug() << "\n I will now open port \t" << portnum << "\n \n";
+        //     myMgr->PortsOpen(portCount);             //Open the port
 
-            for (size_t i = 0; i < portCount; i++) {
-                IPort &myPort = myMgr->Ports(i);
+        //     for (size_t i = 0; i < portCount; i++) {
+        //         IPort &myPort = myMgr->Ports(i);
 
-                qDebug() << " Port[" << i << "]: state=" << myPort.OpenState() << ", nodes=" << myPort.NodeCount();
-            }
-        }
-        else {
-            qDebug() << "Unable to locate SC hub port";
+        //         qDebug() << " Port[" << i << "]: state=" << myPort.OpenState() << ", nodes=" << myPort.NodeCount();
+        //     }
+        // }
+        // else {
+        //     qDebug() << "Unable to locate SC hub port";
 
-            return nullptr;  //This terminates the main program
-        }
+        //     return nullptr;  //This terminates the main program
+        // }
+
+        myMgr->ComHubPort(0, 8);
+        myMgr->PortsOpen(1);
 
 
         //Once the code gets past this point, it can be assumed that the Port has been opened without issue

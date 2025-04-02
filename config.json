@@ -28,5 +28,16 @@
     "ChunkModeActive": true,
     "ChunkSelector": "Timestamp",
     "ChunkEnable": true
+  },
+  "motor_params": {
+    "minAzAngle": -15.0,
+    "maxAzAngle": 15.0,
+    "minAlAngle": 0.0,
+    "maxAlAngle": 20.0,
+    "minAlRPMLimit": 1.0,
+    "maxAlRPMLimit": 20.0
+  },
+  "yolo_params": {
+    "confidence": 0.3
   }
 }

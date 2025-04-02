@@ -22,6 +22,8 @@
 #include <opencv2/core/cuda.hpp>
 #include <opencv2/dnn.hpp>
 #include "YOLOInferenceWorker.h"
+#include "AltitudeControl.h"
+#include "AzimuthControl.h"
 
 
 
@@ -58,7 +60,10 @@ private slots:
     void toggleMotorCameraCalType();
     void updateSavedCameraCalibrationFilesComboBox();
     void calibrateCameraWithSelectedFile();
+    void calibrateMotorCameraWithSelectedFile();
+    void updateSavedMotorCameraCalibrationFilesComboBox();
     void resetNewCameraCalibration();
+    void resetMotorCameraCalibration();
     void newCameraCalibrationStartImageCapture();
     void newCameraCalibrationSaveImagePair();          // Save image pair function
     void newCal3DStopImageCapture();       // Stop image capture function
@@ -69,11 +74,11 @@ private slots:
     void setProcesseing();
     void setBackgroundImage();
     void receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv::Mat &originalFrame2, double timestamp);
-    void indicateCameraCalibrationComplete();
+    //void indicateCameraCalibrationComplete();
     void setupCaptureThreadConnections();
     void onProcessedFramesReady(const cv::Mat &processedFrame1, const cv::Mat &processedFrame2);
-    void handleInferenceComplete(const cv::Mat &processedFrame1, const cv::Mat &processedFrame2);
-
+    void handleInferenceComplete(const cv::Mat &processedFrame1, const cv::Mat &processedFrame2,
+                                 cv::Point centroid1, cv::Point centroid2, double timestamp);
 
 
 signals:
@@ -95,6 +100,12 @@ private:
     std::vector<cv::Mat> getLEDCoords();
     std::vector<cv::Point> reorderCentroids(const std::vector<cv::Point>& centroids);
     void sphericalCalibration();
+
+    AlConfigData alConfigData;
+    AzConfigData azConfigData;
+
+    void setMotorGUILimits();
+
 
 
     void sphericalTest();
@@ -134,7 +145,7 @@ private:
     void enableAltitude();
     void disableAltitude();
     double altitudeCalLowerLimit = 0.0;
-    double altitudeCalUpperLimit = 5.0;
+    double altitudeCalUpperLimit = 0.0;
     std::vector<double> altitudeCalPositions;
 
 
@@ -144,8 +155,8 @@ private:
     void enableAzimuth();
     void disableAzimuth();
     int azimuthPosition = 0;
-    double azimuthCalLowerLimit = -10.0;
-    double azimuthCalUpperLimit = 8.0;
+    double azimuthCalLowerLimit = 0.0;
+    double azimuthCalUpperLimit = 0.0;
     std::vector<double> azimuthCalPositions;
 
 
@@ -163,6 +174,10 @@ private:
     void setAltitudeUpperLimit();
 
     void sweepLookupTable();
+    double sweepAlRPMLimit = 1.0;
+    void stopSweep();
+
+    QString sweepName = "";
 
     void toggleNearFarSweep();
 
@@ -179,7 +194,8 @@ private:
     void updateCentroid(const cv::Point3f& newCentroid, double timestamp);
     cv::Point3f getCentroid();
 
-    void calculateInterpolatedLookupTable(int newAzCount, int newAlCount);
+    void calculateInterpolatedLookupTable();
+    void getLookupTable();
 
     std::vector<LookupEntry> interpolatedLookupTable;
     QTimer* continuousAimTimer = nullptr;
