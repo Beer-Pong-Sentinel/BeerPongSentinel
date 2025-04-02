@@ -198,13 +198,14 @@ struct ConfigData {
 };
 
 ConfigData ParseConfig() {
-    cout << "in parse config" << endl;
+    cout << "in parse camera config" << endl;
     // Open and parse the JSON file
     std::ifstream f("../../config.json");
     if (!f.is_open()) {
         std::cout << "Error: Could not open config.json file" << std::endl;
     }
     json config = json::parse(f);
+    std::cout << "parsed camera config successfully"<< std::endl;
     
 
     // Populate the ConfigData struct with values from the JSON file

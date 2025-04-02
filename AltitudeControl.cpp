@@ -4,6 +4,9 @@
 #include <string>
 #include <iostream>
 #include "pubSysCls.h"
+#include "json.hpp"
+#include <fstream>
+using json = nlohmann::json;
 
 using namespace sFnd;
 
@@ -14,6 +17,41 @@ using namespace sFnd;
 
 #define TIME_TILL_TIMEOUT   10000   //The timeout used for homing(ms)
 #define DEGREE_PER_STEP 0.057
+
+
+
+AlConfigData parseAltitudeConfig() {
+    std::cout << "in altitude motor parse config" << std::endl;
+    // Open and parse the JSON file
+    std::ifstream f("../../config.json");
+    if (!f.is_open()) {
+        std::cout << "Error: Could not open config.json file" << std::endl;
+    }
+    json config = json::parse(f);
+    std::cout << "successfully parsed altitude config" << std::endl;
+
+
+    AlConfigData alConfigData;
+    std::cout << "initialized alConfigData" << std::endl;
+
+
+    alConfigData.minAlAngle = config["motor_params"]["minAlAngle"];
+    std::cout << "parsed al min angle" << std::endl;
+
+    alConfigData.maxAlAngle = config["motor_params"]["maxAlAngle"];
+    std::cout << "parsed al max angle" << std::endl;
+
+
+    alConfigData.minAlRPMLimit = config["motor_params"]["minAlRPMLimit"];
+    std::cout << "parsed al min RPM limit" << std::endl;
+
+    alConfigData.maxAlRPMLimit = config["motor_params"]["maxAlRPMLimit"];
+    std::cout << "parsed al max RPM limit" << std::endl;
+
+
+    return alConfigData;
+}
+
 
 INode* initializeAltitudeMotor()
 {
@@ -56,6 +94,9 @@ INode* initializeAltitudeMotor()
 
         //     return nullptr;  //This terminates the main program
         // }
+
+        myMgr->ComHubPort(0, 8);
+        myMgr->PortsOpen(1);
 
         myMgr->ComHubPort(0, 17);
         myMgr->PortsOpen(1);

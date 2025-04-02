@@ -1,9 +1,12 @@
-#include "AltitudeControl.h"
+#include "AzimuthControl.h"
 
 #include <windows.h>
 #include <iostream>
 #include <QSerialPort>
 #include <qdebug.h>
+#include "json.hpp"
+#include <fstream>
+using json = nlohmann::json;
 
 #define DEGREE_PER_STEP 0.45
 
@@ -18,6 +21,23 @@ void initializeAzimuthMotor(QSerialPort* serialPort, const int currPosition) {
         qDebug() << "Message sent successfully:" << serialMessage.trimmed();
     }
 
+}
+
+AzConfigData parseAzimuthConfig() {
+    std::cout << "in azimuth motor parse config" << std::endl;
+    // Open and parse the JSON file
+    std::ifstream f("../../config.json");
+    if (!f.is_open()) {
+        std::cout << "Error: Could not open config.json file" << std::endl;
+    }
+    json config = json::parse(f);
+
+    AzConfigData azConfigData;
+
+    azConfigData.minAzAngle = config["motor_params"]["minAzAngle"];
+    azConfigData.maxAzAngle = config["motor_params"]["maxAzAngle"];
+
+    return azConfigData;
 }
 
 
