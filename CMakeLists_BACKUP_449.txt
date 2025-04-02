@@ -12,7 +12,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 ########################################################################
 # Set these paths to match your system:
 # Qt installation directory
-set(CMAKE_PREFIX_PATH "C:/Qt/6.8.0/msvc2022_64")
+set(CMAKE_PREFIX_PATH "C:/Qt/6.8.3/msvc2022_64")
 
 # Spinnaker SDK path
 set(SPINNAKER_SDK_PATH "C:/Program Files/Teledyne/Spinnaker")
@@ -74,6 +74,7 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         ProcessTimer.h ProcessTimer.cpp
         YOLOInferenceWorker.h
         resources.qrc
+
     )
     qt_create_translation(QM_FILES ${CMAKE_SOURCE_DIR} ${TS_FILES})
 else()
