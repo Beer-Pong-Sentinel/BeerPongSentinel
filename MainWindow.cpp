@@ -134,10 +134,9 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
     connect(ui.startCentroidPushButton, &QPushButton::clicked, this, &MainWindow::toggleCaptureCentroid);
     connect(ui.saveCentroidPushButton, &QPushButton::clicked, this, &MainWindow::saveCentroidListToJson);
 
-    connect(&watcher, &QFutureWatcher<cv::Point3f>::finished, this, [this]() {
-        cv::Point3f result = future.result();
-        qDebug() << "Prediction result: " << result.x << result.y << result.z;
-    });
+    connect(ui.startPredictionPushButton, &QPushButton::clicked, this, &MainWindow::togglePrediction);
+
+    connect(this, &MainWindow::predictionDataReady, this, &MainWindow::runPrediction);
 
 
 
@@ -620,7 +619,7 @@ void MainWindow::receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv
     if (processingType == "None") {
         // No processing; just update the frames
         QtConcurrent::run([this, originalFrame1, originalFrame2]() {
-            ui.cameraStreamWidget->updateFrame(originalFrame1, originalFrame2, format);
+            ui.cameraStreamWidget->updateFrame(originalFrame1.clone(), originalFrame2.clone(), format);
         });
     } else if (processingType == "BGSub") {
         QtConcurrent::run([this, originalFrame1, originalFrame2, timestamp]() {
@@ -2301,7 +2300,7 @@ cv::Point3f MainWindow::processImagesCUDA(const cv::Mat &originalFrame1, const c
         //     qDebug() << "Only one valid centroid detected";
         // }
     } else {
-        qDebug() << "Centroids detected";
+        // qDebug() << "Centroids detected";
         // Handle centroids
         point = handleCentroids(centroid1, centroid2);
     }
@@ -2466,6 +2465,11 @@ void MainWindow::updateCentroid(const cv::Point3f& newCentroid, double timestamp
         CentroidData data = {newCentroid.x, newCentroid.y, newCentroid.z, timestamp};
         centroidData.push_back(data);
     }
+    if (centroidData.size() >= ui.predictionFramesSpinBox->value() && !predicted) {
+        predicted = true;
+        std::vector<CentroidData> clone = centroidData;
+        emit predictionDataReady(clone);
+    }
 }
 
 cv::Point3f MainWindow::getCentroid() {
@@ -2514,18 +2518,9 @@ void MainWindow::togglePrediction() {
 
     if (predicting) {
         centroidData.clear();
+        predicted = false;
         ui.startPredictionPushButton->setText("Stop Prediction");
-
-        // If a prediction task is already running, cancel it before starting a new one
-        if (future.isRunning()) {
-            future.cancel();
-            future.waitForFinished();
-        }
-
-        // Start the new prediction process
-        future = QtConcurrent::run(&MainWindow::runPrediction, this);
-        watcher.setFuture(future);
-
+        if (!capturingCentroids) toggleCaptureCentroid();
     } else {
         ui.startPredictionPushButton->setText("Start Prediction");
         // Allow the process to finish naturally, but don't start new ones
@@ -2533,182 +2528,72 @@ void MainWindow::togglePrediction() {
 }
 
 cv::Point3f MainWindow::runPrediction() {
-    std::deque<double> x_queue, y_queue, z_queue, t_queue;
-
-    // Wait until centroidData has at least 5 elements
-    while (true) {
-        {
-            QMutexLocker locker(&mutex); // Lock before accessing centroidData
-            if (!predicting) return cv::Point3f(-1, -1, -1);
-            if (centroidData.size() >= 5) break;
-        }
-        QThread::msleep(10); // Avoid busy-waiting
-    }
-
-    double x_init, y_init, z_init, vx_init, vy_init, vz_init;
-
-    {
-        QMutexLocker locker(&mutex); // Lock to access centroidData safely
-        x_init = centroidData[0].x;
-        y_init = centroidData[0].y;
-        z_init = centroidData[0].z;
-
-        vx_init = centroidData[1].x - centroidData[0].x;
-        vy_init = centroidData[1].y - centroidData[0].y;
-        vz_init = centroidData[1].z - centroidData[0].z;
-
-        for (int i = 0; i < 5; ++i) {
-            x_queue.push_back(centroidData[i].x);
-            y_queue.push_back(centroidData[i].y);
-            z_queue.push_back(centroidData[i].z);
-            t_queue.push_back(centroidData[i].t);
-        }
-    }
-
-    std::vector<double> initial_guess = {x_init, y_init, z_init, vx_init, vy_init, vz_init};
-    int idx = 4; // Start at last initialized point
-
-    int limit = 10;
-    while (predicting && idx <= limit) {
-        {
-            QMutexLocker locker(&mutex); // Ensure safe access
-
-            // If new data is available
-            if (centroidData.size() > idx) {
-                std::vector<double> result = leastSquaresFit(t_queue, x_queue, y_queue, z_queue, initial_guess);
-                initial_guess = result;
-
-                x_queue.push_back(centroidData[idx].x);
-                y_queue.push_back(centroidData[idx].y);
-                z_queue.push_back(centroidData[idx].z);
-                t_queue.push_back(centroidData[idx].t);
-
-                x_queue.pop_front();
-                y_queue.pop_front();
-                z_queue.pop_front();
-                t_queue.pop_front();
-
-                idx++;
-            }
-        }
-
-        QThread::msleep(20); // Reduce CPU usage
-    }
-
-    return cv::Point3f(initial_guess[0], initial_guess[1], initial_guess[2]);
+    if (!predicting) return cv::Point3f(-1, -1, -1);
+    cv::Point3f point;
+    predictionTimer->timeVoid([&]() {
+        InitialConditions result = determineInitialConditions(centroidData, gravity_vector);
+        point = getInterceptionPoint(result, ui.interceptionDelaySpinBox->value() / 1000.0);
+        qDebug() << "Interception point:" << point.x << point.y << point.z;
+    });
+    return point;
 }
 
-
-
-std::vector<double> MainWindow::leastSquaresFit(
-    const std::deque<double>& t_queue,
-    const std::deque<double>& x_queue,
-    const std::deque<double>& y_queue,
-    const std::deque<double>& z_queue,
-    const std::vector<double>& initial_guess
-) {
-    const double g = 9.81; // gravitational acceleration
-
-    // Convert input data to Eigen vectors
-    Eigen::VectorXd t(t_queue.size());
-    Eigen::VectorXd x_obs(x_queue.size());
-    Eigen::VectorXd y_obs(y_queue.size());
-    Eigen::VectorXd z_obs(z_queue.size());
-
-    for (size_t i = 0; i < t_queue.size(); ++i) {
-        t(i) = t_queue[i];
-        x_obs(i) = x_queue[i];
-        y_obs(i) = y_queue[i];
-        z_obs(i) = z_queue[i];
+InitialConditions MainWindow::determineInitialConditions(const std::vector<CentroidData>& centroid_data,
+                                                         const std::vector<double>& gravity_vector) {
+    x_vals.clear(); y_vals.clear(); z_vals.clear(); t_vals.clear();
+    double t0 = centroid_data[0].t;
+    for (CentroidData point : centroid_data) {
+        x_vals.push_back(point.x / 1000);
+        y_vals.push_back(point.y / 1000);
+        z_vals.push_back(point.z / 1000);
+        t_vals.push_back((point.t - t0) / 1000000);
     }
 
-    // Compute residuals function
-    auto residuals = [&](const Eigen::VectorXd& params) -> Eigen::VectorXd {
-        double x0 = params(0);
-        double y0 = params(1);
-        double z0 = params(2);
-        double vx0 = params(3);
-        double vy0 = params(4);
-        double vz0 = params(5);
+    double ax = gravity_vector[0];
+    double ay = gravity_vector[1];
+    double az = gravity_vector[2];
 
-        Eigen::VectorXd residual(3 * t.size());
+    Eigen::Vector2d x_params = fitTrajectory(t_vals, x_vals, ax);
+    Eigen::Vector2d y_params = fitTrajectory(t_vals, y_vals, ay);
+    Eigen::Vector2d z_params = fitTrajectory(t_vals, z_vals, az);
 
-        for (int i = 0; i < t.size(); ++i) {
-            // X residual
-            residual(i) = x_obs(i) - (x0 + vx0 * t(i));
+    InitialConditions result;
+    result.initial_position = {x_params[0], y_params[0], z_params[0]};
+    result.initial_velocity = {x_params[1], y_params[1], z_params[1]};
+    result.acceleration = {ax, ay, az};
 
-            // Y residual (with gravity)
-            residual(t.size() + i) = y_obs(i) - (y0 + vy0 * t(i) + 0.5 * g * std::pow(t(i), 2));
-
-            // Z residual
-            residual(2 * t.size() + i) = z_obs(i) - (z0 + vz0 * t(i));
-        }
-
-        return residual;
-    };
-
-    // Levenberg-Marquardt optimization
-    Eigen::VectorXd params(6);
-    for (int i = 0; i < 6; ++i) {
-        params(i) = initial_guess[i];
-    }
-
-    // Optimization parameters
-    const int max_iterations = 100;
-    const double lambda_init = 0.01;
-    const double stop_threshold = 1e-6;
-
-    double lambda = lambda_init;
-    Eigen::VectorXd best_params = params;
-    double best_error = residuals(params).squaredNorm();
-
-    for (int iter = 0; iter < max_iterations; ++iter) {
-        // Compute Jacobian
-        Eigen::MatrixXd jacobian(3 * t.size(), 6);
-        const double h = 1e-8;  // Small perturbation for numerical derivative
-
-        for (int j = 0; j < 6; ++j) {
-            Eigen::VectorXd perturbed_params = params;
-            perturbed_params(j) += h;
-
-            Eigen::VectorXd perturbed_residual = residuals(perturbed_params);
-            Eigen::VectorXd original_residual = residuals(params);
-
-            jacobian.col(j) = (perturbed_residual - original_residual) / h;
-        }
-
-        // Compute update
-        Eigen::MatrixXd JtJ = jacobian.transpose() * jacobian;
-        Eigen::VectorXd Jtr = jacobian.transpose() * residuals(params);
-
-        // Damped least squares
-        Eigen::MatrixXd A = JtJ + lambda * Eigen::MatrixXd::Identity(6, 6);
-        Eigen::VectorXd update = A.ldlt().solve(Jtr);
-
-        Eigen::VectorXd new_params = params - update;
-        double new_error = residuals(new_params).squaredNorm();
-
-        // Accept or reject update
-        if (new_error < best_error) {
-            best_params = new_params;
-            best_error = new_error;
-            params = new_params;
-            lambda /= 10.0;  // Reduce lambda
-        } else {
-            lambda *= 10.0;  // Increase lambda
-        }
-
-        // Convergence check
-        if (update.norm() < stop_threshold) {
-            break;
-        }
-    }
-
-    // Convert back to std::vector
-    std::vector<double> result(6);
-    for (int i = 0; i < 6; ++i) {
-        result[i] = best_params(i);
-    }
+    qDebug() << "Initial Position: " << result.initial_position[0] << result.initial_position[1] << result.initial_position[2];
+    qDebug() << "Initial Velocity: " << result.initial_velocity[0] << result.initial_velocity[1] << result.initial_velocity[2];
+    qDebug() << "Acceleration" << result.acceleration[0] << result.acceleration[1] << result.acceleration[2];
 
     return result;
+}
+
+Eigen::Vector2d MainWindow::fitTrajectory(const std::vector<double>& t_vals, const std::vector<double>& coords, double a) {
+    int n = t_vals.size();
+
+    // Setup the matrix for least-squares (A * params = coords)
+    Eigen::MatrixXd A(n, 2);  // Design matrix: 2 columns (x0, v0)
+    Eigen::VectorXd b(n);     // Observed values
+
+    for (int i = 0; i < n; ++i) {
+        A(i, 0) = 1;        // x0 term
+        A(i, 1) = t_vals[i]; // v0 term (t)
+        // Remove acceleration contribution from observed values
+        // to match curve_fit which includes acceleration in the model
+        b(i) = coords[i] - 0.5 * a * t_vals[i] * t_vals[i];   // Observed value adjusted for known acceleration
+    }
+
+    // Solve the normal equation: A^T * A * params = A^T * b
+    Eigen::Vector2d params = (A.transpose() * A).ldlt().solve(A.transpose() * b);
+
+    return params;
+}
+
+cv::Point3f MainWindow::getInterceptionPoint(const InitialConditions& initial_conditions, double time) {
+    float x = ball_model(time, initial_conditions.initial_position[0], initial_conditions.initial_velocity[0], initial_conditions.acceleration[0]);
+    float y = ball_model(time, initial_conditions.initial_position[1], initial_conditions.initial_velocity[1], initial_conditions.acceleration[1]);
+    float z = ball_model(time, initial_conditions.initial_position[2], initial_conditions.initial_velocity[2], initial_conditions.acceleration[2]);
+
+    return cv::Point3f(x, y, z);
 }

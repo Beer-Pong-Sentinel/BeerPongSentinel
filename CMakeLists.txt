@@ -12,8 +12,13 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 ########################################################################
 # Set these paths to match your system:
 # Qt installation directory
-set(CMAKE_PREFIX_PATH "C:/Qt/6.8.0/msvc2022_64")
-
+if(EXISTS "C:/Qt/6.8.3/msvc2022_64")
+    set(CMAKE_PREFIX_PATH "C:/Qt/6.8.3/msvc2022_64")
+elseif(EXISTS "C:/Qt/6.8.0/msvc2022_64")
+    set(CMAKE_PREFIX_PATH "C:/Qt/6.8.0/msvc2022_64")
+else()
+    message(FATAL_ERROR "Qt version not found!")
+endif()
 # Spinnaker SDK path
 set(SPINNAKER_SDK_PATH "C:/Program Files/Teledyne/Spinnaker")
 

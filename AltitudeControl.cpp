@@ -31,33 +31,34 @@ INode* initializeAltitudeMotor()
     try
     {
 
-        SysManager::FindComHubPorts(comHubPorts);
-        qDebug() << "Found" << comHubPorts.size() << "SC Hubs";
+        // SysManager::FindComHubPorts(comHubPorts);
+        // qDebug() << "Found" << comHubPorts.size() << "SC Hubs";
 
-        for (portCount = 0; portCount < comHubPorts.size() && portCount < NET_CONTROLLER_MAX; portCount++) {
+        // for (portCount = 0; portCount < comHubPorts.size() && portCount < NET_CONTROLLER_MAX; portCount++) {
 
-            myMgr->ComHubPort(portCount, comHubPorts[portCount].c_str());    //define the first SC Hub port (port 0) to be associated
-                // with COM portnum (as seen in device manager)
-        }
-
-
-        if (portCount > 0) {
-            //qDebug() << "\n I will now open port \t" << portnum << "\n \n";
-            myMgr->PortsOpen(portCount);             //Open the port
-
-            for (size_t i = 0; i < portCount; i++) {
-                IPort &myPort = myMgr->Ports(i);
-
-                qDebug() << " Port[" << i << "]: state=" << myPort.OpenState() << ", nodes=" << myPort.NodeCount();
-            }
-        }
-        else {
-            qDebug() << "Unable to locate SC hub port";
-
-            return nullptr;  //This terminates the main program
-        }
+        //     myMgr->ComHubPort(portCount, comHubPorts[portCount].c_str());    //define the first SC Hub port (port 0) to be associated
+        //         // with COM portnum (as seen in device manager)
+        // }
 
 
+        // if (portCount > 0) {
+        //     //qDebug() << "\n I will now open port \t" << portnum << "\n \n";
+        //     myMgr->PortsOpen(portCount);             //Open the port
+
+        //     for (size_t i = 0; i < portCount; i++) {
+        //         IPort &myPort = myMgr->Ports(i);
+
+        //         qDebug() << " Port[" << i << "]: state=" << myPort.OpenState() << ", nodes=" << myPort.NodeCount();
+        //     }
+        // }
+        // else {
+        //     qDebug() << "Unable to locate SC hub port";
+
+        //     return nullptr;  //This terminates the main program
+        // }
+
+        myMgr->ComHubPort(0, 17);
+        myMgr->PortsOpen(1);
         //Once the code gets past this point, it can be assumed that the Port has been opened without issue
         //Now we can get a reference to our port object which we will use to access the node
 
