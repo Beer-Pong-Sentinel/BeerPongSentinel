@@ -33,6 +33,7 @@
 #include <vector>
 #include <cmath>
 #include "YOLOInferenceWorker.h"
+#include <QSerialPortInfo>
 //#include <QmlDebuggingEnabler>
 
 using json = nlohmann::json;
@@ -46,25 +47,7 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
     // showMaximized();
 
 
-    // Serial Port
 
-    // Configure the serial port (modify these settings as necessary for your device)
-
-    serialPort->setPortName("COM7");
-
-    if (!serialPort->open(QIODevice::ReadWrite)) {
-        qDebug() << "Error: Failed to open serial port" << serialPort->portName();
-    }
-
-    qDebug()<< "set com3";
-    serialPort->setBaudRate(QSerialPort::Baud115200);
-    qDebug()<< "set baud rate";
-    serialPort->setDataBits(QSerialPort::Data8);
-    serialPort->setParity(QSerialPort::NoParity);
-    serialPort->setStopBits(QSerialPort::OneStop);
-    serialPort->setFlowControl(QSerialPort::NoFlowControl);
-
-    qDebug()<<"set serial settings";
 
 
     connect(ui.selectCal3DFromSavedFile, &QRadioButton::toggled, this, &MainWindow::toggleCal3DType);
@@ -143,6 +126,7 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
 
 
     connect(ui.aimButton, &QPushButton::clicked, this, &MainWindow::aimAtCentroid);
+    connect(ui.mcAimButton, &QPushButton::clicked, this, &MainWindow::aimAtCentroid);
     //connect(ui.startContinuousAimButton, &QPushButton::clicked, this, &MainWindow::aimContinuous);
     //connect(ui.stopContinuousAimButton, &QPushButton::clicked, this, &MainWindow::stopContinuousAim);
 
@@ -195,6 +179,11 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
     qDebug() << "Loaded motor configs";
 
     setMotorGUILimits();
+    refreshMotorPorts();
+    connect(ui.refreshPortsButton, &QPushButton::clicked, this, &MainWindow::refreshMotorPorts);
+    connect(ui.connectMotorsButton, &QPushButton::clicked, this, &MainWindow::connectMotors);
+
+
 
 
 }
@@ -218,6 +207,126 @@ void MainWindow::setMotorGUILimits(){
     ui.altitudeLimitSpinbox->setMaximum(alConfigData.maxAlAngle);
 
 }
+
+void MainWindow::refreshMotorPorts() {
+    QList<QSerialPortInfo> ports = QSerialPortInfo::availablePorts();
+
+    // Optionally reset variables (using -1 to indicate not found)
+    altitudeCOMNum = -1;
+    azimuthCOMNum = -1;
+
+    // Optionally clear the combo boxes to remove previous entries
+    ui.altitudePortComboBox->clear();
+    ui.azimuthoPortComboBox->clear();
+
+    for (const QSerialPortInfo &port : ports) {
+        QString description = port.description().toLower();
+        QString manufacturer = port.manufacturer().toLower();
+        QString portName = port.portName();  // typically "COMxx"
+        int comNumber = portName.remove("COM", Qt::CaseInsensitive).toInt();
+
+        // Check for Teknic SC Hub port
+        // We look for "teknic sc hub" or the combination of "teknic" and "hub"
+        if (description.contains("teknic sc hub") ||
+            (description.contains("teknic") && description.contains("hub")) ||
+            manufacturer.contains("teknic")) {
+            altitudeCOMNum = comNumber;
+            qDebug() << "Found Teknic SC Hub device:";
+            qDebug() << "  Description:" << port.description();
+            qDebug() << "  Port:" << "COM" + QString::number(altitudeCOMNum);
+            qDebug() << "  altitudeCOMNum:" << altitudeCOMNum;
+            ui.altitudePortComboBox->addItem("COM" + QString::number(altitudeCOMNum));
+        }
+        // Check for a serial communication port (if not already identified as Teknic)
+        else if (description.contains("serial") || manufacturer.contains("usb serial")) {
+            azimuthCOMNum = comNumber;
+            qDebug() << "Found Serial Communication device:";
+            qDebug() << "  Description:" << port.description();
+            qDebug() << "  Port:" << "COM" + QString::number(azimuthCOMNum);
+            qDebug() << "  azimuthCOMNum:" << azimuthCOMNum;
+            ui.azimuthoPortComboBox->addItem("COM" + QString::number(azimuthCOMNum));
+        }
+    }
+
+    // If a COM port is not found for altitude, disable its combo box
+    if (altitudeCOMNum == -1) {
+        ui.altitudePortComboBox->setEnabled(false);
+        qDebug() << "No Teknic SC Hub device found. Disabling altitudePortComboBox.";
+    } else {
+        ui.altitudePortComboBox->setEnabled(true);
+        ui.connectMotorsButton->setEnabled(true);
+    }
+
+    // If a COM port is not found for azimuth, disable its combo box
+    if (azimuthCOMNum == -1) {
+        ui.azimuthoPortComboBox->setEnabled(false);
+        qDebug() << "No Serial Communication device found. Disabling azimuthoPortComboBox.";
+    } else {
+        ui.azimuthoPortComboBox->setEnabled(true);
+        ui.connectMotorsButton->setEnabled(true);
+    }
+
+    // if both are not available
+    if (azimuthCOMNum == -1 && altitudeCOMNum== -1){
+
+        ui.connectMotorsButton->setEnabled(false);
+
+    }
+
+}
+
+
+void MainWindow::connectMotors(){
+
+    // Connect azimuth first
+
+    // Serial Port
+
+    // Configure the serial port (modify these settings as necessary for your device)
+
+    if (azimuthCOMNum!=-1){
+        serialPort->setPortName("COM" + QString::number(azimuthCOMNum));
+
+        if (!serialPort->open(QIODevice::ReadWrite)) {
+            qDebug() << "Error: Failed to open serial port" << serialPort->portName();
+        }
+        qDebug()<< "set com3";
+        serialPort->setBaudRate(QSerialPort::Baud115200);
+        qDebug()<< "set baud rate";
+        serialPort->setDataBits(QSerialPort::Data8);
+        serialPort->setParity(QSerialPort::NoParity);
+        serialPort->setStopBits(QSerialPort::OneStop);
+        serialPort->setFlowControl(QSerialPort::NoFlowControl);
+        qDebug()<<"set serial settings";
+
+
+        // enable corresponding controls
+        ui.mcEnableAzimuthButton->setEnabled(true);
+        ui.mcDisableAzimuthButton->setEnabled(true);
+        ui.mcAzimuthAngleSpinBox->setEnabled(true);
+        ui.mcMoveAzimuthButton->setEnabled(true);
+
+    }
+    else{
+        qDebug() << "No Serial port found so can't connect azimuth";
+    }
+
+    if (altitudeCOMNum!=-1){
+        initializeAltitude(altitudeCOMNum);
+
+        ui.mcEnableAltitudeButton->setEnabled(true);
+        ui.mcDisableAltitudeButton->setEnabled(true);
+        ui.mcAltitudeAngleSpinBox->setEnabled(true);
+        ui.mcMoveAltitudeButton->setEnabled(true);
+
+    } else{
+
+        qDebug() << "No SC Hub found so can't connect altitude";
+    }
+
+}
+
+
 
 void MainWindow::toggleCal3DType() {
 
@@ -418,6 +527,15 @@ void MainWindow::calibrateMotorCameraWithSelectedFile() {
     // Save the loaded lookup table into the class variable.
     this->interpolatedLookupTable = loadedLookupTable;
     qDebug() << "Loaded interpolated lookup table with" << loadedLookupTable.size() << "entries.";
+
+    // Print out the loaded lookup table entries.
+    for (const auto &entry : loadedLookupTable) {
+        qDebug() << "Lookup Entry:";
+        qDebug() << "  az:" << entry.az << ", al:" << entry.al;
+        qDebug() << "  xo:" << entry.xo << ", yo:" << entry.yo << ", zo:" << entry.zo;
+        qDebug() << "  ux:" << entry.ux << ", uy:" << entry.uy << ", uz:" << entry.uz;
+    }
+
 }
 
 
@@ -1514,8 +1632,8 @@ void MainWindow::disableAzimuth() {
     sendSerialMessage("d");
 }
 
-void MainWindow::initializeAltitude() {
-    altitudePointer = initializeAltitudeMotor();
+void MainWindow::initializeAltitude(int portNum) {
+    altitudePointer = initializeAltitudeMotor(portNum);
 }
 
 void MainWindow::initializeAzimuth() {
@@ -2157,30 +2275,44 @@ std::pair<double, double> MainWindow::findFiringAngle(double x, double y, double
         // Squared perpendicular (normal) distance from the point to the line.
         double distSq = vNormSq - dot * dot;
 
+        // qDebug() << "in lookup table loop";
+        // qDebug() << "distSq: " << distSq;
+
         // Update best match if this distance is smaller than the current minimum.
         if (distSq < minDistSq) {
+
             minDistSq = distSq;
+
+            qDebug() << "good match found: " << minDistSq;
+            qDebug() << "vector: " << vx << vy << vz;
+            qDebug() << "dot: " << dot;
+            qDebug() << "vNormSq: " << vNormSq;
             bestAz = entry.az;
             bestAl = entry.al;
+            qDebug() << "Best angles: " <<bestAz << bestAl;
         }
     }
 
-    // Clamp the angles to the safe limits:
-    // Azimuth must be between -15.0 and +15.0 degrees.
-    // Altitude must be between 0.0 and +15.0 degrees.
-    bestAz = std::max(-15.0, std::min(bestAz, 15.0));
-    bestAl = std::max(0.0, std::min(bestAl, 15.0));
+    bestAz = std::max(azConfigData.minAzAngle, std::min(bestAz, azConfigData.maxAzAngle));
+    bestAl = std::max(alConfigData.minAlAngle, std::min(bestAl, alConfigData.maxAlAngle));
 
     return { bestAz, bestAl };
 }
 
 
 void MainWindow::aimAtCentroid(){
+
+    qDebug() << "In aim at centroid";
     // Get the current centroid.
     cv::Point3f point = getCentroid();
+
+    qDebug() << "got threadsafe centroid successfully";
+
     double x = point.x;
     double y = point.y;
     double z = point.z;
+
+    qDebug() << "threadsafe centroid is " << x << y<< z;
 
     // Compute desired firing angles.
     std::pair<double, double> bestAngles = findFiringAngle(x, y, z);
@@ -2245,7 +2377,7 @@ void MainWindow::homeMotors(){
 
     // if altitude not initialized
     //if(altitudePointer==nullptr){
-    initializeAltitudeMotor();
+    //initializeAltitudeMotor();
     // sleep for 1 second
     QThread::msleep(250);
     moveAzimuthMotor(serialPort,0.0);
@@ -2708,7 +2840,10 @@ void MainWindow::updateCentroid(const cv::Point3f& newCentroid, double timestamp
 }
 
 cv::Point3f MainWindow::getCentroid() {
+    qDebug() << "in get centroid";
     QMutexLocker locker(&centroidMutex);
+    qDebug() << "created locker";
+    qDebug() << "reutrning centroid";
     return motorCameraCalibrationCurrentCentroid;  // Safe copy
 }
 

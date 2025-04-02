@@ -53,7 +53,7 @@ AlConfigData parseAltitudeConfig() {
 }
 
 
-INode* initializeAltitudeMotor()
+INode* initializeAltitudeMotor(int portNum)
 {
     qDebug() << "Started altitude motor initialization";
     size_t portCount = 0;
@@ -95,7 +95,7 @@ INode* initializeAltitudeMotor()
         //     return nullptr;  //This terminates the main program
         // }
 
-        myMgr->ComHubPort(0, 8);
+        myMgr->ComHubPort(0, portNum);
         myMgr->PortsOpen(1);
 
 

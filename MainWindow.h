@@ -105,6 +105,11 @@ private:
     AzConfigData azConfigData;
 
     void setMotorGUILimits();
+    void refreshMotorPorts();
+
+    int altitudeCOMNum = -1;
+    int azimuthCOMNum = -1;
+    void connectMotors();
 
 
 
@@ -139,7 +144,7 @@ private:
 
     // for altitude motor
     sFnd::INode* altitudePointer;
-    void initializeAltitude();
+    void initializeAltitude(int portNum);
     void altitudeTest();
     void altitudeTimeTest();
     void enableAltitude();
