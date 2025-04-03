@@ -112,7 +112,7 @@ std::pair<std::vector<cv::Mat>, double> getCameraAndRTMatrices(std::string& dirC
             imagePoints2.push_back(corners2);
         }
         else{
-            std::cout<<"Unable to locate corners for one or both images in the pair" << std::endl;
+            //std::cout<<"Unable to locate corners for one or both images in the pair" << std::endl;
         }
     }
 
@@ -166,8 +166,8 @@ std::vector<cv::Mat> getProjectionMatrices(cv::Mat& cameraMatrix1, cv::Mat& came
     cv::Mat P2 = cameraMatrix2 * RT2;                   // Projection matrix for C2
 
     // Output matrices for verification
-    std::cout << "Projection matrix for camera 1 (P1):\n" << P1 << std::endl;
-    std::cout << "Projection matrix for camera 2 (P2):\n" << P2 << std::endl;
+    //std::cout << "Projection matrix for camera 1 (P1):\n" << P1 << std::endl;
+    //std::cout << "Projection matrix for camera 2 (P2):\n" << P2 << std::endl;
 
     return { P1, P2 };
 
@@ -194,12 +194,12 @@ void triangulate(const std::vector<cv::Point2f>& points1, const std::vector<cv::
 
     // Triangulate points
     cv::Mat points4D;
-    std::cout << "Camera 1 points: " << points1Mat << std::endl;
-    std::cout << "Camera 2 points: " << points2Mat << std::endl;
+    //std::cout << "Camera 1 points: " << points1Mat << std::endl;
+    //std::cout << "Camera 2 points: " << points2Mat << std::endl;
 
     cv::triangulatePoints(P1, P2, points1Mat, points2Mat, points4D);
 
-    std::cout << "Triangulation output: " << points4D << std::endl;
+    //std::cout << "Triangulation output: " << points4D << std::endl;
     // Convert homogeneous coordinates to 3D Cartesian coordinates and store as 1x3 matrices
     points3D.clear();
     for (int i = 0; i < points4D.cols; i++) {
@@ -259,8 +259,8 @@ void calibrate(std::string& calDir, int& rows, int& columns, double& worldScalin
     std::vector<cv::Mat> projectionMatrices = getProjectionMatrices(cameraMatrix1, cameraMatrix2, R, T);
     cv::Mat P1 = projectionMatrices[0];
     cv::Mat P2 = projectionMatrices[1];
-    std::cout << "P1: " << P1 << std::endl;
-    std::cout << "P2: " << P2 << std::endl;
+    //std::cout << "P1: " << P1 << std::endl;
+    //std::cout << "P2: " << P2 << std::endl;
 
     // Convert projection matrices to JSON format
     nlohmann::json calibrationData;

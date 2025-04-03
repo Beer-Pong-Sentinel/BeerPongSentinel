@@ -7,7 +7,7 @@ CameraStreamWidget::CameraStreamWidget(QWidget *parent)
     : QOpenGLWidget(parent)
     , m_texture(nullptr)
     , m_lastUpdateTime(0)
-    , m_updateInterval(50)
+    , m_updateInterval(100)
 {
     setFixedSize(720, 270);
     setDefaultBlackFrame();

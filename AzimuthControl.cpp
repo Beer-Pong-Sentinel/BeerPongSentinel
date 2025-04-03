@@ -24,11 +24,11 @@ void initializeAzimuthMotor(QSerialPort* serialPort, const int currPosition) {
 }
 
 AzConfigData parseAzimuthConfig() {
-    std::cout << "in azimuth motor parse config" << std::endl;
+    //std::cout << "in azimuth motor parse config" << std::endl;
     // Open and parse the JSON file
     std::ifstream f("../../config.json");
     if (!f.is_open()) {
-        std::cout << "Error: Could not open config.json file" << std::endl;
+        //std::cout << "Error: Could not open config.json file" << std::endl;
     }
     json config = json::parse(f);
 

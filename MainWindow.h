@@ -283,7 +283,7 @@ private:
     QMutex mutex;
     cv::Point3f runPrediction();
     std::vector<double> x_vals, y_vals, z_vals, t_vals;
-    std::vector<double> gravity_vector = {-0.5839661, 10.99642713, 1.39555507};
+    std::vector<double> gravity_vector = {-0.5096488, 10.54434098,  2.40276155};
     InitialConditions determineInitialConditions(const std::vector<CentroidData>& centroid_data,
                                                  const std::vector<double>& gravity_vector);
     Eigen::Vector2d fitTrajectory(const std::vector<double>& t_vals, const std::vector<double>& coords, double a);
@@ -291,8 +291,9 @@ private:
     double ball_model(double t, double x0, double v0, double a) {
         return x0 + v0 * t + 0.5 * a * t * t;
     }
+    void aimAtInterceptionPoint(cv::Point3f& point);
     ProcessTimer* predictionTimer = new ProcessTimer("Prediction", 1, 5000, this);
-
+    QElapsedTimer frameTimer;
     bool isRecording = false;               // Flag to track recording state
     cv::VideoWriter videoWriter;            // OpenCV video writer
     QMutex recordingMutex;                   // Mutex for thread safety
