@@ -25,6 +25,25 @@
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QGridLayout" name="gridLayout_4">
+    <item row="0" column="1">
+     <widget class="CameraStreamWidget" name="cameraStreamWidget">
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+        <horstretch>0</horstretch>
+        <verstretch>0</verstretch>
+       </sizepolicy>
+      </property>
+      <property name="minimumSize">
+       <size>
+        <width>720</width>
+        <height>270</height>
+       </size>
+      </property>
+      <property name="toolTip">
+       <string/>
+      </property>
+     </widget>
+    </item>
     <item row="0" column="0">
      <widget class="QTabWidget" name="tabWidget">
       <property name="enabled">
@@ -184,7 +203,7 @@
               <number>255</number>
              </property>
              <property name="value">
-              <number>45</number>
+              <number>100</number>
              </property>
             </widget>
            </item>
@@ -945,8 +964,68 @@ For a new calibration take 20-30 images of the chessboard, each time in a differ
        <attribute name="title">
         <string>Motor-Camera Calibration</string>
        </attribute>
-       <layout class="QVBoxLayout" name="verticalLayout_8">
-        <item>
+       <layout class="QGridLayout" name="gridLayout_13">
+        <item row="2" column="0">
+         <layout class="QVBoxLayout" name="verticalLayout_3">
+          <item>
+           <widget class="QRadioButton" name="selectMoCamCalFromSavedFile">
+            <property name="text">
+             <string/>
+            </property>
+            <property name="checked">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QGroupBox" name="loadMoCamCalGroupbox">
+            <property name="title">
+             <string>Load From Saved File</string>
+            </property>
+            <layout class="QGridLayout" name="gridLayout_7" columnstretch="0,0,0,0,0">
+             <item row="0" column="0">
+              <widget class="QLabel" name="label_22">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="text">
+                <string>File:</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="4">
+              <widget class="QPushButton" name="savedMoCamFilesRefreshButton">
+               <property name="text">
+                <string>Refresh</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="4">
+              <widget class="QPushButton" name="calibrateMoCamFromLoadedFile">
+               <property name="text">
+                <string>Calibrate With Existing Interpolation</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="1" colspan="3">
+              <widget class="QComboBox" name="savedMoCamFilesComboBox">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item row="0" column="0">
          <widget class="QLabel" name="label_19">
           <property name="text">
            <string># Motor-Camera Calibration
@@ -960,7 +1039,387 @@ This will automatically move calculate the transfer matrix between the encoder c
           </property>
          </widget>
         </item>
-        <item>
+        <item row="2" column="1">
+         <widget class="QGroupBox" name="groupBox_9">
+          <property name="title">
+           <string>Aiming</string>
+          </property>
+          <layout class="QGridLayout" name="gridLayout_14">
+           <item row="2" column="1">
+            <widget class="QSpinBox" name="alReinterpPointsSpinBox">
+             <property name="enabled">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="0">
+            <widget class="QLabel" name="label_8">
+             <property name="text">
+              <string>Set Altitude RPM Limit (Aim)</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="0">
+            <widget class="QLabel" name="label_17">
+             <property name="text">
+              <string># Azimuth Re-Interp. Points:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="1">
+            <widget class="QDoubleSpinBox" name="setAimAlRPMLimitSpinBox">
+             <property name="enabled">
+              <bool>true</bool>
+             </property>
+             <property name="minimum">
+              <double>1.000000000000000</double>
+             </property>
+             <property name="maximum">
+              <double>20.000000000000000</double>
+             </property>
+             <property name="value">
+              <double>19.000000000000000</double>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="2">
+            <widget class="QPushButton" name="aimButton">
+             <property name="enabled">
+              <bool>true</bool>
+             </property>
+             <property name="text">
+              <string>Aim</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="2">
+            <widget class="QPushButton" name="reinterpButton">
+             <property name="text">
+              <string>Reinterpolate</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="0">
+            <widget class="QLabel" name="label_34">
+             <property name="text">
+              <string># Altitude Re-Interp. Points:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="1">
+            <widget class="QSpinBox" name="azReinterpPointsSpinBox">
+             <property name="enabled">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="0" colspan="3">
+            <widget class="QLabel" name="label_20">
+             <property name="text">
+              <string>WARNING: Reinterpolating will overwrite existing table</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item row="3" column="0" colspan="2">
+         <layout class="QVBoxLayout" name="verticalLayout_4">
+          <item>
+           <widget class="QRadioButton" name="selectNewMoCamCal">
+            <property name="text">
+             <string/>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QGroupBox" name="newMoCamCalGroupbox">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="title">
+             <string>New Calibration</string>
+            </property>
+            <layout class="QGridLayout" name="gridLayout_6">
+             <item row="11" column="4">
+              <widget class="QPushButton" name="calculateLookupTableButton">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="text">
+                <string>Calculate Lookup</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="4">
+              <widget class="QPushButton" name="setUpperAlLimit">
+               <property name="text">
+                <string>Set Upper Limit</string>
+               </property>
+              </widget>
+             </item>
+             <item row="5" column="0">
+              <widget class="QLabel" name="label_36">
+               <property name="text">
+                <string># Altitude Points</string>
+               </property>
+              </widget>
+             </item>
+             <item row="11" column="1">
+              <widget class="QSpinBox" name="numAlInterpPointsSpinBox">
+               <property name="minimum">
+                <number>10</number>
+               </property>
+               <property name="maximum">
+                <number>1000000000</number>
+               </property>
+              </widget>
+             </item>
+             <item row="6" column="0">
+              <widget class="QRadioButton" name="farSweepRadioButton">
+               <property name="text">
+                <string>Far Sweep</string>
+               </property>
+               <property name="checked">
+                <bool>true</bool>
+               </property>
+               <attribute name="buttonGroup">
+                <string notr="true">buttonGroup_2</string>
+               </attribute>
+              </widget>
+             </item>
+             <item row="7" column="3">
+              <widget class="QPushButton" name="startMotorCameraCalibrationButton">
+               <property name="text">
+                <string>Sweep</string>
+               </property>
+              </widget>
+             </item>
+             <item row="7" column="0">
+              <widget class="QRadioButton" name="nearSweepRadioButton">
+               <property name="text">
+                <string>Near Sweep</string>
+               </property>
+               <property name="checked">
+                <bool>false</bool>
+               </property>
+               <attribute name="buttonGroup">
+                <string notr="true">buttonGroup_2</string>
+               </attribute>
+              </widget>
+             </item>
+             <item row="4" column="1">
+              <widget class="QSpinBox" name="numPointsAzimuthSpinbox">
+               <property name="minimum">
+                <number>2</number>
+               </property>
+               <property name="maximum">
+                <number>100</number>
+               </property>
+               <property name="value">
+                <number>10</number>
+               </property>
+              </widget>
+             </item>
+             <item row="7" column="4">
+              <widget class="QPushButton" name="stopMotorCameraCalibrationButton">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="text">
+                <string>Stop</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="1">
+              <widget class="QDoubleSpinBox" name="altitudeLimitSpinbox">
+               <property name="maximum">
+                <double>90.000000000000000</double>
+               </property>
+              </widget>
+             </item>
+             <item row="11" column="0">
+              <widget class="QLabel" name="label_11">
+               <property name="text">
+                <string># Altitude Interpo. Points</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="3">
+              <widget class="QPushButton" name="setLowerAlLimit">
+               <property name="text">
+                <string>Set Lower Limit</string>
+               </property>
+              </widget>
+             </item>
+             <item row="10" column="0">
+              <widget class="QLabel" name="label_9">
+               <property name="text">
+                <string># Azimuth Interp. Points</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="3">
+              <widget class="QPushButton" name="setLowerAzLimit">
+               <property name="text">
+                <string>Set Lower Limit</string>
+               </property>
+              </widget>
+             </item>
+             <item row="3" column="1">
+              <widget class="QDoubleSpinBox" name="setSweepAlRPMLimitSpinBox">
+               <property name="minimum">
+                <double>1.000000000000000</double>
+               </property>
+               <property name="maximum">
+                <double>20.000000000000000</double>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="0">
+              <widget class="QLabel" name="label_26">
+               <property name="text">
+                <string>Name:</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="0">
+              <widget class="QLabel" name="label_33">
+               <property name="text">
+                <string>Set Altitude Limits (deg)</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="2">
+              <widget class="QPushButton" name="goToAlLimitButton">
+               <property name="text">
+                <string>Go</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="1">
+              <widget class="QDoubleSpinBox" name="azimuthLimitSpinbox">
+               <property name="minimum">
+                <double>-90.000000000000000</double>
+               </property>
+               <property name="maximum">
+                <double>90.000000000000000</double>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="2">
+              <widget class="QPushButton" name="goToAzLimitButton">
+               <property name="text">
+                <string>Go</string>
+               </property>
+              </widget>
+             </item>
+             <item row="3" column="0">
+              <widget class="QLabel" name="label_10">
+               <property name="text">
+                <string>Set Altitude RPM Limit (Sweep)</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="0">
+              <widget class="QLabel" name="label_24">
+               <property name="text">
+                <string>Set Azimuth Limits (deg)</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="4">
+              <widget class="QPushButton" name="setUpperAzLimit">
+               <property name="text">
+                <string>Set Upper Limit</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="1" colspan="4">
+              <widget class="QLineEdit" name="newMoCamCalLineEdit">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="inputMask">
+                <string/>
+               </property>
+               <property name="placeholderText">
+                <string>Enter new calibration name</string>
+               </property>
+              </widget>
+             </item>
+             <item row="4" column="0">
+              <widget class="QLabel" name="label_35">
+               <property name="text">
+                <string># Azimuth Points</string>
+               </property>
+              </widget>
+             </item>
+             <item row="5" column="1">
+              <widget class="QSpinBox" name="numPointsAltitudeSpinbox">
+               <property name="minimum">
+                <number>2</number>
+               </property>
+               <property name="maximum">
+                <number>100</number>
+               </property>
+               <property name="value">
+                <number>10</number>
+               </property>
+              </widget>
+             </item>
+             <item row="10" column="1">
+              <widget class="QSpinBox" name="numAzInterpPointsSpinBox">
+               <property name="minimum">
+                <number>10</number>
+               </property>
+               <property name="maximum">
+                <number>1000000000</number>
+               </property>
+              </widget>
+             </item>
+             <item row="9" column="0" colspan="5">
+              <widget class="Line" name="line_3">
+               <property name="orientation">
+                <enum>Qt::Orientation::Horizontal</enum>
+               </property>
+              </widget>
+             </item>
+             <item row="7" column="1">
+              <widget class="QCheckBox" name="nearSweepDoneCheckBox">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="text">
+                <string>Near Sweep Done</string>
+               </property>
+               <property name="checkable">
+                <bool>true</bool>
+               </property>
+              </widget>
+             </item>
+             <item row="6" column="1">
+              <widget class="QCheckBox" name="farSweepDoneCheckBox">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="text">
+                <string>Far Sweep Done</string>
+               </property>
+               <property name="checkable">
+                <bool>true</bool>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item row="1" column="0" colspan="2">
          <widget class="QGroupBox" name="groupBox_2">
           <property name="title">
            <string>Motor Control</string>
@@ -1109,406 +1568,6 @@ This will automatically move calculate the transfer matrix between the encoder c
            </item>
           </layout>
          </widget>
-        </item>
-        <item>
-         <layout class="QVBoxLayout" name="verticalLayout_3">
-          <item>
-           <widget class="QRadioButton" name="selectMoCamCalFromSavedFile">
-            <property name="text">
-             <string/>
-            </property>
-            <property name="checked">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QGroupBox" name="loadMoCamCalGroupbox">
-            <property name="title">
-             <string>Load From Saved File</string>
-            </property>
-            <layout class="QGridLayout" name="gridLayout_7" columnstretch="0,1,0,0,0">
-             <item row="0" column="0">
-              <widget class="QLabel" name="label_22">
-               <property name="sizePolicy">
-                <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
-                 <horstretch>0</horstretch>
-                 <verstretch>0</verstretch>
-                </sizepolicy>
-               </property>
-               <property name="text">
-                <string>File:</string>
-               </property>
-              </widget>
-             </item>
-             <item row="0" column="4">
-              <widget class="QPushButton" name="savedMoCamFilesRefreshButton">
-               <property name="text">
-                <string>Refresh</string>
-               </property>
-              </widget>
-             </item>
-             <item row="1" column="4">
-              <widget class="QPushButton" name="calibrateMoCamFromLoadedFile">
-               <property name="text">
-                <string>Calibrate</string>
-               </property>
-              </widget>
-             </item>
-             <item row="1" column="3">
-              <widget class="QPushButton" name="mcAimButton">
-               <property name="text">
-                <string>Test Aim</string>
-               </property>
-              </widget>
-             </item>
-             <item row="0" column="1" colspan="3">
-              <widget class="QComboBox" name="savedMoCamFilesComboBox">
-               <property name="sizePolicy">
-                <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-                 <horstretch>0</horstretch>
-                 <verstretch>0</verstretch>
-                </sizepolicy>
-               </property>
-              </widget>
-             </item>
-            </layout>
-           </widget>
-          </item>
-         </layout>
-        </item>
-        <item>
-         <layout class="QVBoxLayout" name="verticalLayout_4">
-          <item>
-           <widget class="QRadioButton" name="selectNewMoCamCal">
-            <property name="text">
-             <string/>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QGroupBox" name="newMoCamCalGroupbox">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="title">
-             <string>New Calibration</string>
-            </property>
-            <layout class="QGridLayout" name="gridLayout_6">
-             <item row="6" column="0">
-              <widget class="QRadioButton" name="nearSweepRadioButton">
-               <property name="text">
-                <string>Near Sweep</string>
-               </property>
-               <property name="checked">
-                <bool>true</bool>
-               </property>
-               <attribute name="buttonGroup">
-                <string notr="true">buttonGroup_2</string>
-               </attribute>
-              </widget>
-             </item>
-             <item row="10" column="4">
-              <widget class="QPushButton" name="calculateLookupTableButton">
-               <property name="enabled">
-                <bool>false</bool>
-               </property>
-               <property name="text">
-                <string>Calculate Lookup</string>
-               </property>
-              </widget>
-             </item>
-             <item row="0" column="1" colspan="4">
-              <widget class="QLineEdit" name="newMoCamCalLineEdit">
-               <property name="sizePolicy">
-                <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-                 <horstretch>0</horstretch>
-                 <verstretch>0</verstretch>
-                </sizepolicy>
-               </property>
-               <property name="inputMask">
-                <string/>
-               </property>
-               <property name="placeholderText">
-                <string>Enter new calibration name</string>
-               </property>
-              </widget>
-             </item>
-             <item row="7" column="1">
-              <widget class="QCheckBox" name="farSweepDoneCheckBox">
-               <property name="enabled">
-                <bool>false</bool>
-               </property>
-               <property name="text">
-                <string>Far Sweep Done</string>
-               </property>
-               <property name="checkable">
-                <bool>true</bool>
-               </property>
-              </widget>
-             </item>
-             <item row="12" column="1">
-              <widget class="QDoubleSpinBox" name="setAimAlRPMLimitSpinBox">
-               <property name="minimum">
-                <double>1.000000000000000</double>
-               </property>
-               <property name="maximum">
-                <double>20.000000000000000</double>
-               </property>
-               <property name="value">
-                <double>19.000000000000000</double>
-               </property>
-              </widget>
-             </item>
-             <item row="1" column="4">
-              <widget class="QPushButton" name="setUpperAzLimit">
-               <property name="text">
-                <string>Set Upper Limit</string>
-               </property>
-              </widget>
-             </item>
-             <item row="7" column="0">
-              <widget class="QRadioButton" name="farSweepRadioButton">
-               <property name="text">
-                <string>Far Sweep</string>
-               </property>
-               <property name="checked">
-                <bool>false</bool>
-               </property>
-               <attribute name="buttonGroup">
-                <string notr="true">buttonGroup_2</string>
-               </attribute>
-              </widget>
-             </item>
-             <item row="3" column="0">
-              <widget class="QLabel" name="label_10">
-               <property name="text">
-                <string>Set Altitude RPM Limit (Sweep)</string>
-               </property>
-              </widget>
-             </item>
-             <item row="2" column="2">
-              <widget class="QPushButton" name="goToAlLimitButton">
-               <property name="text">
-                <string>Go</string>
-               </property>
-              </widget>
-             </item>
-             <item row="3" column="1">
-              <widget class="QDoubleSpinBox" name="setSweepAlRPMLimitSpinBox">
-               <property name="minimum">
-                <double>1.000000000000000</double>
-               </property>
-               <property name="maximum">
-                <double>20.000000000000000</double>
-               </property>
-              </widget>
-             </item>
-             <item row="1" column="3">
-              <widget class="QPushButton" name="setLowerAzLimit">
-               <property name="text">
-                <string>Set Lower Limit</string>
-               </property>
-              </widget>
-             </item>
-             <item row="4" column="0">
-              <widget class="QLabel" name="label_35">
-               <property name="text">
-                <string># Azimuth Points</string>
-               </property>
-              </widget>
-             </item>
-             <item row="5" column="1">
-              <widget class="QSpinBox" name="numPointsAltitudeSpinbox">
-               <property name="minimum">
-                <number>2</number>
-               </property>
-               <property name="maximum">
-                <number>100</number>
-               </property>
-               <property name="value">
-                <number>10</number>
-               </property>
-              </widget>
-             </item>
-             <item row="5" column="0">
-              <widget class="QLabel" name="label_36">
-               <property name="text">
-                <string># Altitude Points</string>
-               </property>
-              </widget>
-             </item>
-             <item row="7" column="3">
-              <widget class="QPushButton" name="startMotorCameraCalibrationButton">
-               <property name="text">
-                <string>Sweep</string>
-               </property>
-              </widget>
-             </item>
-             <item row="6" column="1">
-              <widget class="QCheckBox" name="nearSweepDoneCheckBox">
-               <property name="enabled">
-                <bool>false</bool>
-               </property>
-               <property name="text">
-                <string>Near Sweep Done</string>
-               </property>
-               <property name="checkable">
-                <bool>true</bool>
-               </property>
-              </widget>
-             </item>
-             <item row="9" column="0">
-              <widget class="QLabel" name="label_9">
-               <property name="text">
-                <string># Azimuth Interp. Points</string>
-               </property>
-              </widget>
-             </item>
-             <item row="0" column="0">
-              <widget class="QLabel" name="label_26">
-               <property name="text">
-                <string>Name:</string>
-               </property>
-              </widget>
-             </item>
-             <item row="2" column="1">
-              <widget class="QDoubleSpinBox" name="altitudeLimitSpinbox">
-               <property name="maximum">
-                <double>90.000000000000000</double>
-               </property>
-              </widget>
-             </item>
-             <item row="2" column="0">
-              <widget class="QLabel" name="label_33">
-               <property name="text">
-                <string>Set Altitude Limits (deg)</string>
-               </property>
-              </widget>
-             </item>
-             <item row="11" column="0" colspan="5">
-              <widget class="Line" name="line_4">
-               <property name="orientation">
-                <enum>Qt::Orientation::Horizontal</enum>
-               </property>
-              </widget>
-             </item>
-             <item row="1" column="0">
-              <widget class="QLabel" name="label_24">
-               <property name="text">
-                <string>Set Azimuth Limits (deg)</string>
-               </property>
-              </widget>
-             </item>
-             <item row="2" column="3">
-              <widget class="QPushButton" name="setLowerAlLimit">
-               <property name="text">
-                <string>Set Lower Limit</string>
-               </property>
-              </widget>
-             </item>
-             <item row="1" column="1">
-              <widget class="QDoubleSpinBox" name="azimuthLimitSpinbox">
-               <property name="minimum">
-                <double>-90.000000000000000</double>
-               </property>
-               <property name="maximum">
-                <double>90.000000000000000</double>
-               </property>
-              </widget>
-             </item>
-             <item row="12" column="0">
-              <widget class="QLabel" name="label_8">
-               <property name="text">
-                <string>Set Altitude RPM Limit (Aim)</string>
-               </property>
-              </widget>
-             </item>
-             <item row="7" column="4">
-              <widget class="QPushButton" name="stopMotorCameraCalibrationButton">
-               <property name="enabled">
-                <bool>false</bool>
-               </property>
-               <property name="text">
-                <string>Stop</string>
-               </property>
-              </widget>
-             </item>
-             <item row="10" column="1">
-              <widget class="QSpinBox" name="numAlInterpPointsSpinBox">
-               <property name="minimum">
-                <number>10</number>
-               </property>
-               <property name="maximum">
-                <number>1000000000</number>
-               </property>
-              </widget>
-             </item>
-             <item row="2" column="4">
-              <widget class="QPushButton" name="setUpperAlLimit">
-               <property name="text">
-                <string>Set Upper Limit</string>
-               </property>
-              </widget>
-             </item>
-             <item row="4" column="1">
-              <widget class="QSpinBox" name="numPointsAzimuthSpinbox">
-               <property name="minimum">
-                <number>2</number>
-               </property>
-               <property name="maximum">
-                <number>100</number>
-               </property>
-               <property name="value">
-                <number>10</number>
-               </property>
-              </widget>
-             </item>
-             <item row="10" column="0">
-              <widget class="QLabel" name="label_11">
-               <property name="text">
-                <string># Altitude Interpo. Points</string>
-               </property>
-              </widget>
-             </item>
-             <item row="1" column="2">
-              <widget class="QPushButton" name="goToAzLimitButton">
-               <property name="text">
-                <string>Go</string>
-               </property>
-              </widget>
-             </item>
-             <item row="9" column="1">
-              <widget class="QSpinBox" name="numAzInterpPointsSpinBox">
-               <property name="minimum">
-                <number>10</number>
-               </property>
-               <property name="maximum">
-                <number>1000000000</number>
-               </property>
-              </widget>
-             </item>
-             <item row="12" column="4">
-              <widget class="QPushButton" name="aimButton">
-               <property name="enabled">
-                <bool>false</bool>
-               </property>
-               <property name="text">
-                <string>Test Aim</string>
-               </property>
-              </widget>
-             </item>
-             <item row="8" column="0" colspan="5">
-              <widget class="Line" name="line_3">
-               <property name="orientation">
-                <enum>Qt::Orientation::Horizontal</enum>
-               </property>
-              </widget>
-             </item>
-            </layout>
-           </widget>
-          </item>
-         </layout>
         </item>
        </layout>
       </widget>
@@ -1729,25 +1788,6 @@ This will automatically move calculate the transfer matrix between the encoder c
       </widget>
      </widget>
     </item>
-    <item row="0" column="1">
-     <widget class="CameraStreamWidget" name="cameraStreamWidget">
-      <property name="sizePolicy">
-       <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-        <horstretch>0</horstretch>
-        <verstretch>0</verstretch>
-       </sizepolicy>
-      </property>
-      <property name="minimumSize">
-       <size>
-        <width>720</width>
-        <height>270</height>
-       </size>
-      </property>
-      <property name="toolTip">
-       <string/>
-      </property>
-     </widget>
-    </item>
    </layout>
   </widget>
   <widget class="QMenuBar" name="menubar">
@@ -1759,7 +1799,7 @@ This will automatically move calculate the transfer matrix between the encoder c
      <x>0</x>
      <y>0</y>
      <width>1717</width>
-     <height>26</height>
+     <height>25</height>
     </rect>
    </property>
   </widget>
@@ -1779,9 +1819,9 @@ This will automatically move calculate the transfer matrix between the encoder c
  <resources/>
  <connections/>
  <buttongroups>
-  <buttongroup name="buttonGroup"/>
   <buttongroup name="buttonGroup_2"/>
   <buttongroup name="showProcessingButtonGroup"/>
   <buttongroup name="selectCal3DTypeButtonGroup"/>
+  <buttongroup name="buttonGroup"/>
  </buttongroups>
 </ui>

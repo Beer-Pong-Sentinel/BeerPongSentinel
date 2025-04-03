@@ -113,6 +113,7 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
 
 
     connect(ui.calculateLookupTableButton, &QPushButton::clicked, this, &MainWindow::getLookupTable);
+    connect(ui.reinterpButton, &QPushButton::clicked, this, &MainWindow::reinterpolateLookupTable);
 
     connect(ui.numPointsAzimuthSpinbox, QOverload<int>::of(&QSpinBox::valueChanged),
             [this](int newValue) {
@@ -126,7 +127,7 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
 
 
     connect(ui.aimButton, &QPushButton::clicked, this, &MainWindow::aimAtCentroid);
-    connect(ui.mcAimButton, &QPushButton::clicked, this, &MainWindow::aimAtCentroid);
+    //connect(ui.mcAimButton, &QPushButton::clicked, this, &MainWindow::aimAtCentroid);
     //connect(ui.startContinuousAimButton, &QPushButton::clicked, this, &MainWindow::aimContinuous);
     //connect(ui.stopContinuousAimButton, &QPushButton::clicked, this, &MainWindow::stopContinuousAim);
 
@@ -539,6 +540,32 @@ void MainWindow::calibrateMotorCameraWithSelectedFile() {
 
 }
 
+void MainWindow::reinterpolateLookupTable() {
+    // Get the selected directory from the combo box
+    sweepName = ui.savedMoCamFilesComboBox->currentText().trimmed();
+    if (sweepName.isEmpty()) {
+        qDebug() << "Calibration name is empty. Please enter a valid name.";
+        return;
+    }
+
+    newAzCount = ui.azReinterpPointsSpinBox->value();
+    newAlCount = ui.alReinterpPointsSpinBox->value();
+
+
+    calculateLookupTable();
+    calculateInterpolatedLookupTable();
+
+    ui.setAimAlRPMLimitSpinBox->setEnabled(true);
+    ui.aimButton->setEnabled(true);
+
+
+}
+
+// void MainWindow::saveReinterpolatedLookupTable(){
+
+
+// }
+
 
 
 
@@ -585,11 +612,11 @@ void MainWindow::resetNewCameraCalibration() {
         ui.chessColumnsSpinBox->setEnabled(false);
         ui.squareSideLengthSpinBox->setEnabled(false);
 
-        ui.tabWidget->setEnabled(true);
+        // ui.tabWidget->setEnabled(true);
 
-        for(int i=0; i<ui.tabWidget->count(); ++i){
-            ui.tabWidget->tabBar()->setTabEnabled(i,true);
-        }
+        // for(int i=0; i<ui.tabWidget->count(); ++i){
+        //     ui.tabWidget->tabBar()->setTabEnabled(i,true);
+        // }
 
         //Reset image pair counter
         numberOfSavedImagePairs=0;
@@ -628,15 +655,15 @@ void MainWindow::newCameraCalibrationStartImageCapture() {
     ui.chessColumnsSpinBox->setEnabled(true);
     ui.squareSideLengthSpinBox->setEnabled(true);
 
-    int currentTabIndex = ui.tabWidget->currentIndex();
+    // int currentTabIndex = ui.tabWidget->currentIndex();
 
-    for(int i=0; i<ui.tabWidget->count(); ++i){
+    // for(int i=0; i<ui.tabWidget->count(); ++i){
 
-        if(i!=currentTabIndex){
-            ui.tabWidget->tabBar()->setTabEnabled(i,false);
-        }
+    //     if(i!=currentTabIndex){
+    //         ui.tabWidget->tabBar()->setTabEnabled(i,false);
+    //     }
 
-    }
+    // }
 
     // Create directories
     QString baseDir = "../../CameraCalibration/" + name;
@@ -1731,8 +1758,8 @@ void MainWindow::toggleNearFarSweep() {
 
     // we want to set the limiting angles for the near
     // sweep first.
-    if (ui.nearSweepRadioButton->isChecked()) {
-        // if near away the sweep settings are enabled
+    if (ui.farSweepRadioButton->isChecked()) {
+        // if far away the sweep settings are enabled
         ui.farSweepRadioButton->setChecked(false);
         ui.azimuthLimitSpinbox->setEnabled(true);
         ui.goToAzLimitButton->setEnabled(true);
@@ -1746,8 +1773,8 @@ void MainWindow::toggleNearFarSweep() {
         ui.setUpperAlLimit->setEnabled(true);
         ui.numPointsAltitudeSpinbox->setEnabled(true);
         ui.setSweepAlRPMLimitSpinBox->setEnabled(true);
-    } else if (ui.farSweepRadioButton->isChecked()) {
-        // if far sweep selected disable so you can't change
+    } else if (ui.nearSweepRadioButton->isChecked()) {
+        // if near sweep selected disable so you can't change
         ui.nearSweepRadioButton->setChecked(false);
         ui.azimuthLimitSpinbox->setEnabled(false);
         ui.goToAzLimitButton->setEnabled(false);
@@ -1908,7 +1935,7 @@ void MainWindow::performSweepStep() {
             sweepData["sweep"].push_back(row);
 
             // Restart the main timer to continue the sweep.
-            sweepTimer->start(2000);
+            sweepTimer->start(1000);
         });
     } else {
         // Finished all altitude moves for the current azimuth; reset for the next azimuth.
@@ -1955,7 +1982,7 @@ void MainWindow::sweepLookupTable() {
     // Create and start a QTimer with an interval that suits your needs (e.g., 2000ms)
     sweepTimer = new QTimer(this);
     connect(sweepTimer, &QTimer::timeout, this, &MainWindow::performSweepStep);
-    sweepTimer->start(2000); // interval in milliseconds
+    sweepTimer->start(1000); // interval in milliseconds
 
     qDebug() << "Motor-Camera Sweep started";
 }
@@ -2108,8 +2135,7 @@ double bilinearInterpolate(double x, double y,
 void MainWindow::calculateInterpolatedLookupTable()
 {
 
-    int newAzCount = ui.numAzInterpPointsSpinBox->value();
-    int newAlCount = ui.numAlInterpPointsSpinBox->value();
+
 
     QString folderPath = "../../MotorCameraCalibration/" + sweepName;
 
@@ -2296,6 +2322,9 @@ void MainWindow::calculateInterpolatedLookupTable()
 
 
 void MainWindow::getLookupTable(){
+
+    newAzCount = ui.numAzInterpPointsSpinBox->value();
+    newAlCount = ui.numAlInterpPointsSpinBox->value();
     calculateLookupTable();
     calculateInterpolatedLookupTable();
 
