@@ -81,7 +81,7 @@ void ApplyMotionThresholdConsecutivelyCUDA(const cv::cuda::GpuMat& d_input,
                                          cv::cuda::GpuMat& d_fgMask,
                                          cv::cuda::GpuMat& d_tmpGray);
 
-void ApplyMorphologyCUDA(cv::cuda::GpuMat& d_input, cv::Ptr<cv::cuda::Filter> erodeFilter, cv::Ptr<cv::cuda::Filter> dilateFilter);
+void ApplyMorphologyCUDA(cv::cuda::GpuMat& d_input, cv::Ptr<cv::cuda::Filter> erodeFilter, cv::Ptr<cv::cuda::Filter> dilateFilter, bool erode, bool dilate);
 
 cv::Point FindCentroidCUDA(const cv::Mat& input);
 

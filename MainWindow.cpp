@@ -1906,7 +1906,7 @@ void MainWindow::performSweepStep() {
             sweepData["sweep"].push_back(row);
 
             // Restart the main timer to continue the sweep.
-            sweepTimer->start(2000);
+            sweepTimer->start(1000);
         });
     } else {
         // Finished all altitude moves for the current azimuth; reset for the next azimuth.
@@ -1953,7 +1953,7 @@ void MainWindow::sweepLookupTable() {
     // Create and start a QTimer with an interval that suits your needs (e.g., 2000ms)
     sweepTimer = new QTimer(this);
     connect(sweepTimer, &QTimer::timeout, this, &MainWindow::performSweepStep);
-    sweepTimer->start(2000); // interval in milliseconds
+    sweepTimer->start(1000); // interval in milliseconds
 
     qDebug() << "Motor-Camera Sweep started";
 }
@@ -2412,11 +2412,11 @@ void MainWindow::aimAtInterceptionPoint(cv::Point3f& point) {
     azimuthPosition += azSteps;  // Update current azimuth position.
     double aimRPMLimit = ui.setAimAlRPMLimitSpinBox->value();
 
-    // // Use a short delay to allow the azimuth move to start/completed before moving altitude.
-    // QTimer::singleShot(10, this, [this, bestAngles, aimRPMLimit]() {
-    //     qDebug() << "Moving altitude motor to" << bestAngles.second << "degrees.";
-    //     moveAltitudeMotor(altitudePointer, bestAngles.second, aimRPMLimit);
-    // });
+    // Use a short delay to allow the azimuth move to start/completed before moving altitude.
+    QTimer::singleShot(10, this, [this, bestAngles, aimRPMLimit]() {
+        qDebug() << "Moving altitude motor to" << bestAngles.second << "degrees.";
+        moveAltitudeMotor(altitudePointer, bestAngles.second, aimRPMLimit);
+    });
 }
 
 // In MainWindow.cpp, add:
@@ -2852,6 +2852,10 @@ void MainWindow::processSingleImageCUDA(const cv::Mat &originalFrame, cv::Mat& o
             if (hsvEnabled) {
                 hsvTimer->timeVoid([&]() {
                     ApplyHSVThresholdCUDA(d_originalFrame, (first) ? d_tmp1 : d_tmp2, (first) ? d_output1 : d_output2, hMin, hMax, sMin, sMax, vMin, vMax);
+                    ApplyMorphologyCUDA((first) ? d_output1 : d_output2,
+                                        (first) ? erodeFilter1 : erodeFilter2,
+                                        (first) ? dilateFilter1 : dilateFilter2,
+                                        false, true);
                 });
             }
             if (motionEnabled) {
@@ -2868,7 +2872,8 @@ void MainWindow::processSingleImageCUDA(const cv::Mat &originalFrame, cv::Mat& o
             morphTimer->timeVoid([&]() {
                 ApplyMorphologyCUDA((first) ? d_output1 : d_output2,
                                     (first) ? erodeFilter1 : erodeFilter2,
-                                    (first) ? dilateFilter1 : dilateFilter2);
+                                    (first) ? dilateFilter1 : dilateFilter2,
+                                    true, true);
             });
         }
     } else {
@@ -2879,6 +2884,10 @@ void MainWindow::processSingleImageCUDA(const cv::Mat &originalFrame, cv::Mat& o
             // }
             if (hsvEnabled) {
                 ApplyHSVThresholdCUDA(d_originalFrame, (first) ? d_tmp1 : d_tmp2, (first) ? d_output1 : d_output2, hMin, hMax, sMin, sMax, vMin, vMax);
+                ApplyMorphologyCUDA((first) ? d_output1 : d_output2,
+                                    (first) ? erodeFilter1 : erodeFilter2,
+                                    (first) ? dilateFilter1 : dilateFilter2,
+                                    false, true);
             }
             if (motionEnabled) {
                 ApplyMotionThresholdConsecutivelyCUDA(d_originalFrame, (first) ? d_output1 : d_output2, backSubCUDA, (first) ? d_fgMask1 : d_fgMask2, (first) ? d_tmpGray1 : d_tmpGray2);
@@ -2889,7 +2898,8 @@ void MainWindow::processSingleImageCUDA(const cv::Mat &originalFrame, cv::Mat& o
         if (morphEnabled) {
             ApplyMorphologyCUDA((first) ? d_output1 : d_output2,
                                 (first) ? erodeFilter1 : erodeFilter2,
-                                (first) ? dilateFilter1 : dilateFilter2);
+                                (first) ? dilateFilter1 : dilateFilter2,
+                                true, true);
         }
     }
     (first) ? d_output1.download(output) : d_output2.download(output);

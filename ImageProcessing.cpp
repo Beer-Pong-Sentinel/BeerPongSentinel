@@ -457,10 +457,10 @@ void ApplyMotionThresholdConsecutivelyCUDA(const cv::cuda::GpuMat& d_input,
     cv::cuda::bitwise_and(d_output, d_fgMask, d_output);
 }
 
-void ApplyMorphologyCUDA(cv::cuda::GpuMat& d_input, cv::Ptr<cv::cuda::Filter> erodeFilter, cv::Ptr<cv::cuda::Filter> dilateFilter) {
+void ApplyMorphologyCUDA(cv::cuda::GpuMat& d_input, cv::Ptr<cv::cuda::Filter> erodeFilter, cv::Ptr<cv::cuda::Filter> dilateFilter, bool erode, bool dilate) {
     // Apply erosion and dilation on the GPU
-    erodeFilter->apply(d_input, d_input);
-    dilateFilter->apply(d_input, d_input);
+    if (erode) erodeFilter->apply(d_input, d_input);
+    if (dilate) dilateFilter->apply(d_input, d_input);
 }
 
 cv::Point FindCentroidCUDA(const cv::Mat& input) {
