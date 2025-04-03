@@ -2919,7 +2919,7 @@ cv::Point3f MainWindow::handleCentroids(const cv::Point &centroid1, const cv::Po
 }
 
 void MainWindow::updateCentroid(const cv::Point3f& newCentroid, double timestamp) {
-    qDebug() << "New centroid: " << newCentroid.x << " " << newCentroid.y << " " << newCentroid.z;
+    // qDebug() << "New centroid: " << newCentroid.x << " " << newCentroid.y << " " << newCentroid.z;
     if (newCentroid == cv::Point3f(-1,-1,-1)) return;
     QMutexLocker locker(&centroidMutex);
     motorCameraCalibrationCurrentCentroid = newCentroid;
