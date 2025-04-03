@@ -1033,6 +1033,40 @@ void MainWindow::onProcessedFramesReady(const cv::Mat &processedFrame1, const cv
     ui.cameraStreamWidget->updateFrame(processedFrame1, processedFrame2, format);
 }
 
+// void MainWindow::handleInferenceComplete(const cv::Mat &processedFrame1, const cv::Mat &processedFrame2,
+//                                          cv::Point centroid1, cv::Point centroid2, double timestamp)
+// {
+//     // Emit these frames to your widget.
+//     emit processedFramesReady(processedFrame1, processedFrame2);
+
+//     // Log the centroids received.
+//     qDebug() << "Centroid for frame 1:" << centroid1.x << "," << centroid1.y;
+//     qDebug() << "Centroid for frame 2:" << centroid2.x << "," << centroid2.y;
+
+//     if (!P1.empty() && !P2.empty()) {
+
+//         if (centroid1.x != -1 && centroid1.y != -1){
+//             // Triangulate the 3D point from the centroids
+//             cv::Mat pts1 = (cv::Mat_<double>(2, 1) << static_cast<double>(centroid1.x), static_cast<double>(centroid1.y));
+//             cv::Mat pts2 = (cv::Mat_<double>(2, 1) << static_cast<double>(centroid2.x), static_cast<double>(centroid2.y));
+
+//             cv::Mat points4D;
+//             cv::triangulatePoints(P1, P2, pts1, pts2, points4D);
+
+//             cv::Mat point3D = points4D.rowRange(0, 3) / points4D.at<double>(3, 0);
+//             cv::Point3f point3f(point3D.at<double>(0), point3D.at<double>(1), point3D.at<double>(2));
+//             updateCentroid(point3f, timestamp);
+//             std::cout << "Triangulated 3D Point YOLO: " << point3f.x << " " << point3f.y << " " << point3f.z << std::endl;
+//         } else {
+//             qDebug() << "no ball centroid found";
+//         }
+//     } else {
+//         qDebug() << "Projection matrices are empty, cannot triangulate.";
+//     }
+
+
+// }
+
 void MainWindow::handleInferenceComplete(const cv::Mat &processedFrame1, const cv::Mat &processedFrame2,
                                          cv::Point centroid1, cv::Point centroid2, double timestamp)
 {
@@ -1044,28 +1078,39 @@ void MainWindow::handleInferenceComplete(const cv::Mat &processedFrame1, const c
     qDebug() << "Centroid for frame 2:" << centroid2.x << "," << centroid2.y;
 
     if (!P1.empty() && !P2.empty()) {
+        if (centroid1.x != -1 && centroid1.y != -1) {
+            // Convert centroids from image coordinates (origin top-left, Y down)
+            // to camera coordinates (origin bottom-left, Y up) for triangulation.
+            int imageHeight1 = processedFrame1.rows; // assume both frames have the same height
+            int imageHeight2 = processedFrame2.rows;
+            cv::Point convertedCentroid1(centroid1.x, imageHeight1 - centroid1.y);
+            cv::Point convertedCentroid2(centroid2.x, imageHeight2 - centroid2.y);
 
-        if (centroid1.x != -1 && centroid1.y != -1){
-            // Triangulate the 3D point from the centroids
-            cv::Mat pts1 = (cv::Mat_<double>(2, 1) << static_cast<double>(centroid1.x), static_cast<double>(centroid1.y));
-            cv::Mat pts2 = (cv::Mat_<double>(2, 1) << static_cast<double>(centroid2.x), static_cast<double>(centroid2.y));
+            // Prepare the points for triangulation using the converted centroids.
+            cv::Mat pts1 = (cv::Mat_<double>(2, 1) << static_cast<double>(convertedCentroid1.x),
+                            static_cast<double>(convertedCentroid1.y));
+            cv::Mat pts2 = (cv::Mat_<double>(2, 1) << static_cast<double>(convertedCentroid2.x),
+                            static_cast<double>(convertedCentroid2.y));
 
             cv::Mat points4D;
             cv::triangulatePoints(P1, P2, pts1, pts2, points4D);
 
+            // Convert from homogeneous to Euclidean coordinates.
             cv::Mat point3D = points4D.rowRange(0, 3) / points4D.at<double>(3, 0);
-            cv::Point3f point3f(point3D.at<double>(0), point3D.at<double>(1), point3D.at<double>(2));
+            cv::Point3f point3f(point3D.at<double>(0),
+                                point3D.at<double>(1),
+                                point3D.at<double>(2));
             updateCentroid(point3f, timestamp);
-            std::cout << "Triangulated 3D Point YOLO: " << point3f.x << " " << point3f.y << " " << point3f.z << std::endl;
+            std::cout << "Triangulated 3D Point YOLO: "
+                      << point3f.x << " " << point3f.y << " " << point3f.z << std::endl;
         } else {
-            qDebug() << "no ball centroid found";
+            qDebug() << "No ball centroid found";
         }
     } else {
         qDebug() << "Projection matrices are empty, cannot triangulate.";
     }
-
-
 }
+
 
 
 
@@ -1609,7 +1654,7 @@ void MainWindow::calibrateMotorCamera() {
     });
 }
 
-void MainWindow::sendSerialMessage(QString baseMessage) {
+void MainWindow::sendSerialMessage(QString baseMessage, bool getFeedback) {
     QString serialMessage = baseMessage + "\n";
     qint64 bytesWritten = serialPort->write(serialMessage.toUtf8());
     if (bytesWritten == -1) {
@@ -1617,7 +1662,23 @@ void MainWindow::sendSerialMessage(QString baseMessage) {
     } else {
         qDebug() << "Message sent successfully:" << serialMessage.trimmed();
     }
+
+    if (getFeedback) {
+        // Wait for up to 5000ms (5 seconds) for feedback
+        if (serialPort->waitForReadyRead(5000)) {
+            QByteArray feedbackData = serialPort->readAll();
+            // If more data is expected, you could loop until no more data is available:
+            while (serialPort->waitForReadyRead(100)) {
+                feedbackData.append(serialPort->readAll());
+            }
+            QString feedback = QString::fromUtf8(feedbackData);
+            qDebug() << "Received feedback:" << feedback.trimmed();
+        } else {
+            qDebug() << "No feedback received within timeout.";
+        }
+    }
 }
+
 
 void MainWindow::fire() {
     sendSerialMessage("t");
@@ -2829,6 +2890,7 @@ cv::Point3f MainWindow::handleCentroids(const cv::Point &centroid1, const cv::Po
 }
 
 void MainWindow::updateCentroid(const cv::Point3f& newCentroid, double timestamp) {
+    qDebug() << "New centroid: " << newCentroid.x << " " << newCentroid.y << " " << newCentroid.z;
     if (newCentroid == cv::Point3f(-1,-1,-1)) return;
     QMutexLocker locker(&centroidMutex);
     motorCameraCalibrationCurrentCentroid = newCentroid;
@@ -2847,7 +2909,7 @@ cv::Point3f MainWindow::getCentroid() {
     qDebug() << "in get centroid";
     QMutexLocker locker(&centroidMutex);
     qDebug() << "created locker";
-    qDebug() << "reutrning centroid";
+    qDebug() << "reutrning centroid " << motorCameraCalibrationCurrentCentroid.x << " " << motorCameraCalibrationCurrentCentroid.y << " " << motorCameraCalibrationCurrentCentroid.z;
     return motorCameraCalibrationCurrentCentroid;  // Safe copy
 }
 

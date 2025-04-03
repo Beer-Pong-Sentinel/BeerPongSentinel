@@ -98,8 +98,6 @@ INode* initializeAltitudeMotor(int portNum)
         myMgr->ComHubPort(0, portNum);
         myMgr->PortsOpen(1);
 
-        myMgr->ComHubPort(0, 17);
-        myMgr->PortsOpen(1);
         //Once the code gets past this point, it can be assumed that the Port has been opened without issue
         //Now we can get a reference to our port object which we will use to access the node
 
