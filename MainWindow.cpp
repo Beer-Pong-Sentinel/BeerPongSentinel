@@ -912,7 +912,7 @@ void MainWindow::receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv
                     cv::Mat point3D = points4D.rowRange(0, 3) / points4D.at<double>(3, 0);
                     cv::Point3f point3f(point3D.at<double>(0), point3D.at<double>(1), point3D.at<double>(2));
                     updateCentroid(point3f, timestamp);
-                    std::cout << "Triangulated 3D Point Thresholded: " << point3f.x << " " << point3f.y << " " << point3f.z << std::endl;
+                    //std::cout << "Triangulated 3D Point Thresholded: " << point3f.x << " " << point3f.y << " " << point3f.z << std::endl;
                 } else {
                     qDebug() << "no ball centroid found";
                 }
@@ -1011,7 +1011,9 @@ void MainWindow::receiveAndProcessFrames(const cv::Mat &originalFrame1, const cv
         emit processedFramesReady(thresholdedImage1, thresholdedImage2);
     } else if (processingType == "BD") {
         setBDValues();
-        updateCentroid(processImageCentroidCUDA(originalFrame1, originalFrame2, true), timestamp);
+        QtConcurrent::run([this, originalFrame1, originalFrame2, timestamp]() {
+            updateCentroid(processImageCentroidCUDA(originalFrame1, originalFrame2, true), timestamp);
+        });
         //qDebug() << "Centroid in receive and process frames: "<< motorCameraCalibrationCurrentCentroid.x << motorCameraCalibrationCurrentCentroid.y << motorCameraCalibrationCurrentCentroid.z ;
     }
     else if (processingType =="YOLO"){
@@ -2343,13 +2345,13 @@ std::pair<double, double> MainWindow::findFiringAngle(double x, double y, double
 
             minDistSq = distSq;
 
-            qDebug() << "good match found: " << minDistSq;
-            qDebug() << "vector: " << vx << vy << vz;
-            qDebug() << "dot: " << dot;
-            qDebug() << "vNormSq: " << vNormSq;
+            // qDebug() << "good match found: " << minDistSq;
+            // qDebug() << "vector: " << vx << vy << vz;
+            // qDebug() << "dot: " << dot;
+            // qDebug() << "vNormSq: " << vNormSq;
             bestAz = entry.az;
             bestAl = entry.al;
-            qDebug() << "Best angles: " <<bestAz << bestAl;
+            // qDebug() << "Best angles: " <<bestAz << bestAl;
         }
     }
 
@@ -2390,6 +2392,31 @@ void MainWindow::aimAtCentroid(){
         qDebug() << "Moving altitude motor to" << bestAngles.second << "degrees.";
         moveAltitudeMotor(altitudePointer, bestAngles.second, aimRPMLimit);
     });
+}
+
+void MainWindow::aimAtInterceptionPoint(cv::Point3f& point) {
+    double x = point.x;
+    double y = point.y;
+    double z = point.z;
+
+    qDebug() << "Intercepting at: " << x << y<< z;
+
+    // Compute desired firing angles.
+    std::pair<double, double> bestAngles = findFiringAngle(x, y, z);
+    qDebug() << "Best az:" << bestAngles.first << "best al:" << bestAngles.second;
+
+    // Calculate required steps for the azimuth motor.
+    int azSteps = static_cast<int>(bestAngles.first / 0.45) - azimuthPosition;
+    qDebug() << "Moving azimuth motor by" << azSteps << "steps.";
+    sendSerialMessage(QString::number(azSteps));
+    azimuthPosition += azSteps;  // Update current azimuth position.
+    double aimRPMLimit = ui.setAimAlRPMLimitSpinBox->value();
+
+    // // Use a short delay to allow the azimuth move to start/completed before moving altitude.
+    // QTimer::singleShot(10, this, [this, bestAngles, aimRPMLimit]() {
+    //     qDebug() << "Moving altitude motor to" << bestAngles.second << "degrees.";
+    //     moveAltitudeMotor(altitudePointer, bestAngles.second, aimRPMLimit);
+    // });
 }
 
 // In MainWindow.cpp, add:
@@ -2897,11 +2924,15 @@ void MainWindow::updateCentroid(const cv::Point3f& newCentroid, double timestamp
     if (capturingCentroids) {
         CentroidData data = {newCentroid.x, newCentroid.y, newCentroid.z, timestamp};
         centroidData.push_back(data);
+        if (centroidData.size() == 1) frameTimer.start();
     }
     if (centroidData.size() >= ui.predictionFramesSpinBox->value() && !predicted) {
         predicted = true;
         std::vector<CentroidData> clone = centroidData;
         emit predictionDataReady(clone);
+        qint64 frameTime = frameTimer.elapsed();
+        qDebug() << "Time taken to collect frames: " << frameTime << "ms";
+        frameTimer.restart();
     }
 }
 
@@ -2965,12 +2996,22 @@ void MainWindow::togglePrediction() {
 
 cv::Point3f MainWindow::runPrediction() {
     if (!predicting) return cv::Point3f(-1, -1, -1);
+
+    QElapsedTimer timer;
     cv::Point3f point;
-    predictionTimer->timeVoid([&]() {
-        InitialConditions result = determineInitialConditions(centroidData, gravity_vector);
-        point = getInterceptionPoint(result, ui.interceptionDelaySpinBox->value() / 1000.0);
-        qDebug() << "Interception point:" << point.x << point.y << point.z;
-    });
+
+
+    timer.start();
+    InitialConditions result = determineInitialConditions(centroidData, gravity_vector);
+    point = getInterceptionPoint(result, ui.interceptionDelaySpinBox->value() / 1000.0);
+    qint64 interceptionTime = timer.elapsed();
+    qDebug() << "Prediction took:" << interceptionTime << "ms";
+
+    timer.restart();
+    aimAtInterceptionPoint(point);
+    qint64 aimTime = timer.elapsed();
+    qDebug() << "aimAtInterceptionPoint took:" << aimTime << "ms";
+
     return point;
 }
 
@@ -3044,5 +3085,5 @@ cv::Point3f MainWindow::getInterceptionPoint(const InitialConditions& initial_co
     float y = ball_model(time, initial_conditions.initial_position[1], initial_conditions.initial_velocity[1], initial_conditions.acceleration[1]);
     float z = ball_model(time, initial_conditions.initial_position[2], initial_conditions.initial_velocity[2], initial_conditions.acceleration[2]);
 
-    return cv::Point3f(x, y, z);
+    return cv::Point3f(x * 1000.0, y * 1000.0, z * 1000.0);
 }

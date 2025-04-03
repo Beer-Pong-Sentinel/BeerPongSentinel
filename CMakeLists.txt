@@ -160,3 +160,5 @@ install(TARGETS BeerPongSentinel
 if(QT_VERSION_MAJOR EQUAL 6)
     qt_finalize_executable(BeerPongSentinel)
 endif()
+
+# add_definitions(-DQT_NO_DEBUG_OUTPUT)

@@ -1256,7 +1256,7 @@ This will automatically move calculate the transfer matrix between the encoder c
                 <double>20.000000000000000</double>
                </property>
                <property name="value">
-                <double>10.000000000000000</double>
+                <double>19.000000000000000</double>
                </property>
               </widget>
              </item>
@@ -1759,7 +1759,7 @@ This will automatically move calculate the transfer matrix between the encoder c
      <x>0</x>
      <y>0</y>
      <width>1717</width>
-     <height>25</height>
+     <height>26</height>
     </rect>
    </property>
   </widget>
@@ -1779,9 +1779,9 @@ This will automatically move calculate the transfer matrix between the encoder c
  <resources/>
  <connections/>
  <buttongroups>
-  <buttongroup name="buttonGroup_2"/>
-  <buttongroup name="selectCal3DTypeButtonGroup"/>
   <buttongroup name="buttonGroup"/>
+  <buttongroup name="buttonGroup_2"/>
   <buttongroup name="showProcessingButtonGroup"/>
+  <buttongroup name="selectCal3DTypeButtonGroup"/>
  </buttongroups>
 </ui>
