@@ -204,8 +204,8 @@ double moveAltitudeMotor(INode* altitudePointer, float absoluteAngle, int rpmLim
     SysManager* myMgr = SysManager::Instance();                           //Create System Manager myMgr
 
     INode &theNode = *altitudePointer;
-    if (!settingsSet) {
-        settingsSet = true;
+    //if (!settingsSet) {
+        //settingsSet = true;
         theNode.Motion.MoveWentDone();  // Clear the move done flag
         theNode.AccUnit(INode::RPM_PER_SEC);                //Set the units for Acceleration to RPM/SEC
         theNode.VelUnit(INode::RPM);                        //Set the units for Velocity to RPM
@@ -216,7 +216,7 @@ double moveAltitudeMotor(INode* altitudePointer, float absoluteAngle, int rpmLim
             theNode.Motion.VelLimit = 1000;              //Set Velocity Limit (RPM)
 
         }
-    }
+    //}
 
     int steps = absoluteAngle / DEGREE_PER_STEP;
 

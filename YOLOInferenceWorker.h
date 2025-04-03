@@ -91,16 +91,15 @@ private:
     // Process a single frame: run inference, draw detection boxes and the centroid.
     // Returns the centroid if exactly one detection is found; otherwise returns (-1,-1)
     cv::Point processFrame(cv::Mat &frame) {
-
         cv::Mat blob;
-        // Create blob from image
+        // Create blob from image.
         cv::dnn::blobFromImage(frame, blob, 1.0/255.0, inputSize, cv::Scalar(0,0,0), true, false);
         net.setInput(blob);
         cv::Mat outputs = net.forward();
 
         // Assume output shape is (1, 5, 8400). Reshape to (8400, 5):
-        cv::Mat detectionMat = outputs.reshape(1, outputs.size[1]); // shape (5, 8400)
-        cv::transpose(detectionMat, detectionMat); // shape (8400, 5)
+        cv::Mat detectionMat = outputs.reshape(1, outputs.size[1]);
+        cv::transpose(detectionMat, detectionMat);
 
         float x_factor = static_cast<float>(frame.cols) / inputSize.width;
         float y_factor = static_cast<float>(frame.rows) / inputSize.height;
@@ -109,8 +108,7 @@ private:
         std::vector<float> confidences;
 
         float *data = reinterpret_cast<float*>(detectionMat.data);
-        int numDetections = detectionMat.rows; // e.g. 8400
-
+        int numDetections = detectionMat.rows; // e.g. 8400 detections
         for (int i = 0; i < numDetections; ++i) {
             // Each detection: [center_x, center_y, width, height, confidence]
             float cx = data[0], cy = data[1], w = data[2], h = data[3], conf = data[4];
@@ -125,27 +123,34 @@ private:
             data += 5;
         }
 
+        // Apply Non-Max Suppression to filter overlapping boxes.
+        float nmsThreshold = 0.4f; // Adjust this value if needed.
+        std::vector<int> indices;
+        cv::dnn::NMSBoxes(boxes, confidences, confThreshold, nmsThreshold, indices);
+
         cv::Point computedCentroid(-1, -1);
         int validDetections = 0;
 
-        // Draw all boxes and compute centroids
-        for (size_t i = 0; i < boxes.size(); i++) {
-            cv::rectangle(frame, boxes[i], cv::Scalar(0, 255, 0), 2);
-            std::string label = cv::format("t: %.2f", confidences[i]);
-            cv::putText(frame, label, boxes[i].tl(), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 2);
+        // Process only the detections that remain after NMS.
+        for (int idx : indices) {
+            cv::Rect box = boxes[idx];
+            cv::rectangle(frame, box, cv::Scalar(0, 255, 0), 2);
+            std::string label = cv::format("t: %.2f", confidences[idx]);
+            cv::putText(frame, label, box.tl(), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 2);
 
-            cv::Point centroid(boxes[i].x + boxes[i].width / 2,
-                               boxes[i].y + boxes[i].height / 2);
-            // Draw the centroid as a red dot
+            cv::Point centroid(box.x + box.width / 2, box.y + box.height / 2);
             cv::circle(frame, centroid, 3, cv::Scalar(0, 0, 255), -1);
             validDetections++;
 
-            // If this is the first (and ideally only) valid detection, store its centroid.
+            qDebug() << "centroid found in YOLO:" << centroid.x << centroid.y;
+
+            // Store the centroid of the first valid detection.
             if (validDetections == 1) {
                 computedCentroid = centroid;
             }
         }
 
+        qDebug() << "Valid detections after NMS:" << validDetections;
         // If not exactly one detection is found, mark as error.
         if (validDetections != 1) {
             computedCentroid = cv::Point(-1, -1);
@@ -154,8 +159,10 @@ private:
             else if (validDetections == 0)
                 qDebug() << "No centroid found";
         }
+
         return computedCentroid;
     }
+
 
     cv::dnn::Net &net;
     cv::Size inputSize;

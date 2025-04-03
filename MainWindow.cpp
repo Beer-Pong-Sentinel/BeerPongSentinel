@@ -181,6 +181,8 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
     refreshMotorPorts();
     connect(ui.refreshPortsButton, &QPushButton::clicked, this, &MainWindow::refreshMotorPorts);
     connect(ui.connectMotorsButton, &QPushButton::clicked, this, &MainWindow::connectMotors);
+    connect(ui.stopMotorCameraCalibrationButton, &QPushButton::clicked, this, &MainWindow::stopSweep);
+
 
 
 
@@ -528,12 +530,12 @@ void MainWindow::calibrateMotorCameraWithSelectedFile() {
     qDebug() << "Loaded interpolated lookup table with" << loadedLookupTable.size() << "entries.";
 
     // Print out the loaded lookup table entries.
-    for (const auto &entry : loadedLookupTable) {
-        qDebug() << "Lookup Entry:";
-        qDebug() << "  az:" << entry.az << ", al:" << entry.al;
-        qDebug() << "  xo:" << entry.xo << ", yo:" << entry.yo << ", zo:" << entry.zo;
-        qDebug() << "  ux:" << entry.ux << ", uy:" << entry.uy << ", uz:" << entry.uz;
-    }
+    // for (const auto &entry : loadedLookupTable) {
+    //     qDebug() << "Lookup Entry:";
+    //     qDebug() << "  az:" << entry.az << ", al:" << entry.al;
+    //     qDebug() << "  xo:" << entry.xo << ", yo:" << entry.yo << ", zo:" << entry.zo;
+    //     qDebug() << "  ux:" << entry.ux << ", uy:" << entry.uy << ", uz:" << entry.uz;
+    // }
 
 }
 
@@ -1085,8 +1087,8 @@ void MainWindow::handleInferenceComplete(const cv::Mat &processedFrame1, const c
             // to camera coordinates (origin bottom-left, Y up) for triangulation.
             int imageHeight1 = processedFrame1.rows; // assume both frames have the same height
             int imageHeight2 = processedFrame2.rows;
-            cv::Point convertedCentroid1(centroid1.x, imageHeight1 - centroid1.y);
-            cv::Point convertedCentroid2(centroid2.x, imageHeight2 - centroid2.y);
+            cv::Point convertedCentroid1(centroid1.x, centroid1.y);
+            cv::Point convertedCentroid2(centroid2.x, centroid2.y);
 
             // Prepare the points for triangulation using the converted centroids.
             cv::Mat pts1 = (cv::Mat_<double>(2, 1) << static_cast<double>(convertedCentroid1.x),
@@ -2390,7 +2392,7 @@ void MainWindow::aimAtCentroid(){
     // Use a short delay to allow the azimuth move to start/completed before moving altitude.
     QTimer::singleShot(200, this, [this, bestAngles, aimRPMLimit]() {
         qDebug() << "Moving altitude motor to" << bestAngles.second << "degrees.";
-        moveAltitudeMotor(altitudePointer, bestAngles.second, aimRPMLimit);
+        moveAltitudeMotor(altitudePointer, bestAngles.second, 1.0);
     });
 }
 
@@ -2412,11 +2414,11 @@ void MainWindow::aimAtInterceptionPoint(cv::Point3f& point) {
     azimuthPosition += azSteps;  // Update current azimuth position.
     double aimRPMLimit = ui.setAimAlRPMLimitSpinBox->value();
 
-    // // Use a short delay to allow the azimuth move to start/completed before moving altitude.
-    // QTimer::singleShot(10, this, [this, bestAngles, aimRPMLimit]() {
-    //     qDebug() << "Moving altitude motor to" << bestAngles.second << "degrees.";
-    //     moveAltitudeMotor(altitudePointer, bestAngles.second, aimRPMLimit);
-    // });
+    // Use a short delay to allow the azimuth move to start/completed before moving altitude.
+    QTimer::singleShot(10, this, [this, bestAngles, aimRPMLimit]() {
+        qDebug() << "Moving altitude motor to" << bestAngles.second << "degrees.";
+        moveAltitudeMotor(altitudePointer, bestAngles.second, aimRPMLimit);
+    });
 }
 
 // In MainWindow.cpp, add:

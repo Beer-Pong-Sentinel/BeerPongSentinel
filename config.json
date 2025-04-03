@@ -2,7 +2,7 @@
   "acquisition": {
     "AcquisitionMode": "Continuous",
     "ExposureAuto": "Off",
-    "ExposureTime": 6000.0,
+    "ExposureTime": 10000.0,
     "GainAuto": "Off",
     "Gain": 5.0
   },
@@ -30,14 +30,14 @@
     "ChunkEnable": true
   },
   "motor_params": {
-    "minAzAngle": -15.0,
-    "maxAzAngle": 15.0,
+    "minAzAngle": -25.0,
+    "maxAzAngle": 25.0,
     "minAlAngle": 0.0,
-    "maxAlAngle": 20.0,
+    "maxAlAngle": 25.0,
     "minAlRPMLimit": 1.0,
     "maxAlRPMLimit": 20.0
   },
   "yolo_params": {
-    "confidence": 0.3
+    "confidence": 0.55
   }
 }
