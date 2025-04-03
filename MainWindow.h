@@ -109,6 +109,8 @@ private:
     std::vector<cv::Point> reorderCentroids(const std::vector<cv::Point>& centroids);
     void sphericalCalibration();
 
+    QElapsedTimer timer;
+
     AlConfigData alConfigData;
     AzConfigData azConfigData;
 
@@ -209,9 +211,12 @@ private:
 
     void calculateInterpolatedLookupTable();
     void getLookupTable();
+    void reinterpolateLookupTable();
 
     std::vector<LookupEntry> interpolatedLookupTable;
     QTimer* continuousAimTimer = nullptr;
+    double newAzCount=1;
+    double newAlCount=1;
 
     void aimContinuous();
     void stopContinuousAim();

@@ -113,6 +113,7 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
 
 
     connect(ui.calculateLookupTableButton, &QPushButton::clicked, this, &MainWindow::getLookupTable);
+    connect(ui.reinterpButton, &QPushButton::clicked, this, &MainWindow::reinterpolateLookupTable);
 
     connect(ui.numPointsAzimuthSpinbox, QOverload<int>::of(&QSpinBox::valueChanged),
             [this](int newValue) {
@@ -126,7 +127,7 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
 
 
     connect(ui.aimButton, &QPushButton::clicked, this, &MainWindow::aimAtCentroid);
-    connect(ui.mcAimButton, &QPushButton::clicked, this, &MainWindow::aimAtCentroid);
+    //connect(ui.mcAimButton, &QPushButton::clicked, this, &MainWindow::aimAtCentroid);
     //connect(ui.startContinuousAimButton, &QPushButton::clicked, this, &MainWindow::aimContinuous);
     //connect(ui.stopContinuousAimButton, &QPushButton::clicked, this, &MainWindow::stopContinuousAim);
 
@@ -181,6 +182,8 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), captureThread(null
     refreshMotorPorts();
     connect(ui.refreshPortsButton, &QPushButton::clicked, this, &MainWindow::refreshMotorPorts);
     connect(ui.connectMotorsButton, &QPushButton::clicked, this, &MainWindow::connectMotors);
+    connect(ui.stopMotorCameraCalibrationButton, &QPushButton::clicked, this, &MainWindow::stopSweep);
+
 
 
 
@@ -528,14 +531,40 @@ void MainWindow::calibrateMotorCameraWithSelectedFile() {
     qDebug() << "Loaded interpolated lookup table with" << loadedLookupTable.size() << "entries.";
 
     // Print out the loaded lookup table entries.
-    for (const auto &entry : loadedLookupTable) {
-        qDebug() << "Lookup Entry:";
-        qDebug() << "  az:" << entry.az << ", al:" << entry.al;
-        qDebug() << "  xo:" << entry.xo << ", yo:" << entry.yo << ", zo:" << entry.zo;
-        qDebug() << "  ux:" << entry.ux << ", uy:" << entry.uy << ", uz:" << entry.uz;
-    }
+    // for (const auto &entry : loadedLookupTable) {
+    //     qDebug() << "Lookup Entry:";
+    //     qDebug() << "  az:" << entry.az << ", al:" << entry.al;
+    //     qDebug() << "  xo:" << entry.xo << ", yo:" << entry.yo << ", zo:" << entry.zo;
+    //     qDebug() << "  ux:" << entry.ux << ", uy:" << entry.uy << ", uz:" << entry.uz;
+    // }
 
 }
+
+void MainWindow::reinterpolateLookupTable() {
+    // Get the selected directory from the combo box
+    sweepName = ui.savedMoCamFilesComboBox->currentText().trimmed();
+    if (sweepName.isEmpty()) {
+        qDebug() << "Calibration name is empty. Please enter a valid name.";
+        return;
+    }
+
+    newAzCount = ui.azReinterpPointsSpinBox->value();
+    newAlCount = ui.alReinterpPointsSpinBox->value();
+
+
+    calculateLookupTable();
+    calculateInterpolatedLookupTable();
+
+    ui.setAimAlRPMLimitSpinBox->setEnabled(true);
+    ui.aimButton->setEnabled(true);
+
+
+}
+
+// void MainWindow::saveReinterpolatedLookupTable(){
+
+
+// }
 
 
 
@@ -583,11 +612,11 @@ void MainWindow::resetNewCameraCalibration() {
         ui.chessColumnsSpinBox->setEnabled(false);
         ui.squareSideLengthSpinBox->setEnabled(false);
 
-        ui.tabWidget->setEnabled(true);
+        // ui.tabWidget->setEnabled(true);
 
-        for(int i=0; i<ui.tabWidget->count(); ++i){
-            ui.tabWidget->tabBar()->setTabEnabled(i,true);
-        }
+        // for(int i=0; i<ui.tabWidget->count(); ++i){
+        //     ui.tabWidget->tabBar()->setTabEnabled(i,true);
+        // }
 
         //Reset image pair counter
         numberOfSavedImagePairs=0;
@@ -626,15 +655,15 @@ void MainWindow::newCameraCalibrationStartImageCapture() {
     ui.chessColumnsSpinBox->setEnabled(true);
     ui.squareSideLengthSpinBox->setEnabled(true);
 
-    int currentTabIndex = ui.tabWidget->currentIndex();
+    // int currentTabIndex = ui.tabWidget->currentIndex();
 
-    for(int i=0; i<ui.tabWidget->count(); ++i){
+    // for(int i=0; i<ui.tabWidget->count(); ++i){
 
-        if(i!=currentTabIndex){
-            ui.tabWidget->tabBar()->setTabEnabled(i,false);
-        }
+    //     if(i!=currentTabIndex){
+    //         ui.tabWidget->tabBar()->setTabEnabled(i,false);
+    //     }
 
-    }
+    // }
 
     // Create directories
     QString baseDir = "../../CameraCalibration/" + name;
@@ -1085,8 +1114,8 @@ void MainWindow::handleInferenceComplete(const cv::Mat &processedFrame1, const c
             // to camera coordinates (origin bottom-left, Y up) for triangulation.
             int imageHeight1 = processedFrame1.rows; // assume both frames have the same height
             int imageHeight2 = processedFrame2.rows;
-            cv::Point convertedCentroid1(centroid1.x, imageHeight1 - centroid1.y);
-            cv::Point convertedCentroid2(centroid2.x, imageHeight2 - centroid2.y);
+            cv::Point convertedCentroid1(centroid1.x, centroid1.y);
+            cv::Point convertedCentroid2(centroid2.x, centroid2.y);
 
             // Prepare the points for triangulation using the converted centroids.
             cv::Mat pts1 = (cv::Mat_<double>(2, 1) << static_cast<double>(convertedCentroid1.x),
@@ -1729,8 +1758,8 @@ void MainWindow::toggleNearFarSweep() {
 
     // we want to set the limiting angles for the near
     // sweep first.
-    if (ui.nearSweepRadioButton->isChecked()) {
-        // if near away the sweep settings are enabled
+    if (ui.farSweepRadioButton->isChecked()) {
+        // if far away the sweep settings are enabled
         ui.farSweepRadioButton->setChecked(false);
         ui.azimuthLimitSpinbox->setEnabled(true);
         ui.goToAzLimitButton->setEnabled(true);
@@ -1744,8 +1773,8 @@ void MainWindow::toggleNearFarSweep() {
         ui.setUpperAlLimit->setEnabled(true);
         ui.numPointsAltitudeSpinbox->setEnabled(true);
         ui.setSweepAlRPMLimitSpinBox->setEnabled(true);
-    } else if (ui.farSweepRadioButton->isChecked()) {
-        // if far sweep selected disable so you can't change
+    } else if (ui.nearSweepRadioButton->isChecked()) {
+        // if near sweep selected disable so you can't change
         ui.nearSweepRadioButton->setChecked(false);
         ui.azimuthLimitSpinbox->setEnabled(false);
         ui.goToAzLimitButton->setEnabled(false);
@@ -2106,8 +2135,7 @@ double bilinearInterpolate(double x, double y,
 void MainWindow::calculateInterpolatedLookupTable()
 {
 
-    int newAzCount = ui.numAzInterpPointsSpinBox->value();
-    int newAlCount = ui.numAlInterpPointsSpinBox->value();
+
 
     QString folderPath = "../../MotorCameraCalibration/" + sweepName;
 
@@ -2294,6 +2322,9 @@ void MainWindow::calculateInterpolatedLookupTable()
 
 
 void MainWindow::getLookupTable(){
+
+    newAzCount = ui.numAzInterpPointsSpinBox->value();
+    newAlCount = ui.numAlInterpPointsSpinBox->value();
     calculateLookupTable();
     calculateInterpolatedLookupTable();
 
@@ -2390,7 +2421,7 @@ void MainWindow::aimAtCentroid(){
     // Use a short delay to allow the azimuth move to start/completed before moving altitude.
     QTimer::singleShot(200, this, [this, bestAngles, aimRPMLimit]() {
         qDebug() << "Moving altitude motor to" << bestAngles.second << "degrees.";
-        moveAltitudeMotor(altitudePointer, bestAngles.second, aimRPMLimit);
+        moveAltitudeMotor(altitudePointer, bestAngles.second, 1.0);
     });
 }
 
@@ -2927,7 +2958,7 @@ cv::Point3f MainWindow::handleCentroids(const cv::Point &centroid1, const cv::Po
 }
 
 void MainWindow::updateCentroid(const cv::Point3f& newCentroid, double timestamp) {
-    qDebug() << "New centroid: " << newCentroid.x << " " << newCentroid.y << " " << newCentroid.z;
+    // qDebug() << "New centroid: " << newCentroid.x << " " << newCentroid.y << " " << newCentroid.z;
     if (newCentroid == cv::Point3f(-1,-1,-1)) return;
     QMutexLocker locker(&centroidMutex);
     motorCameraCalibrationCurrentCentroid = newCentroid;
